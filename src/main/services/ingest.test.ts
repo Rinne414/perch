@@ -20,4 +20,13 @@ describe('ingestInbox', () => {
     expect(readdirSync(dir).filter((n) => n.endsWith('.json'))).toEqual([])
     expect(readdirSync(join(dir, 'rejected'))).toEqual(['0-garbage.json'])
   })
+
+  test('accepts a file saved with a byte order mark, as Windows PowerShell writes UTF-8', () => {
+    const db = openDatabase(':memory:')
+    const dir = mkdtempSync(join(tmpdir(), 'tc-ingest-'))
+    const event = { v: 1, agent: 'my-script', sessionId: 'b', status: 'done', at: 1 }
+    writeFileSync(join(dir, '1-bom.json'), `﻿${JSON.stringify(event)}`)
+
+    expect(ingestInbox(db, dir, 10)).toEqual({ applied: 1, rejected: 0 })
+  })
 })

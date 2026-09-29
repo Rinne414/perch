@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { hookPayloadToEvent, isHookAgent } from '../integrations/adapters'
-import { writeInboxEvent } from '../integrations/inbox'
+import { parseJsonText, writeInboxEvent } from '../integrations/inbox'
 import { agentPresent, install, INSTALLABLE, isInstallable, isInstalled, uninstall } from '../integrations/install'
 
 /*
@@ -51,7 +51,7 @@ async function runHook(agent: string, inbox: string): Promise<void> {
     const raw = await readStdin()
     keepRawIfDebugging(inbox, agent, raw)
     if (!isHookAgent(agent)) throw new Error(`unknown agent "${agent}"`)
-    const event = hookPayloadToEvent(agent, JSON.parse(raw) as unknown, Date.now())
+    const event = hookPayloadToEvent(agent, parseJsonText(raw), Date.now())
     if (event) writeInboxEvent(inbox, event)
   } catch (err) {
     try {

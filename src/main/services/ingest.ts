@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { parseAgentEvent } from '@shared/agentEvent'
-import { readInbox, rejectInboxFile, removeInboxFile } from '../../integrations/inbox'
+import { parseJsonText, readInbox, rejectInboxFile, removeInboxFile } from '../../integrations/inbox'
 import { applyAgentEvent } from '../db/agents'
 
 export interface IngestResult {
@@ -15,7 +15,7 @@ export function ingestInbox(db: DatabaseSync, dir: string, now: number): IngestR
   for (const file of readInbox(dir)) {
     let event = null
     try {
-      event = parseAgentEvent(JSON.parse(file.content))
+      event = parseAgentEvent(parseJsonText(file.content))
     } catch {
       event = null
     }

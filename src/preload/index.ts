@@ -1,0 +1,59 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import { CHANNELS, type Api, type MainTab } from '@shared/ipc'
+
+/** The Api interface types each call; the bridge only forwards arguments. */
+const invoke =
+  (channel: string) =>
+  (...args: unknown[]): Promise<never> =>
+    ipcRenderer.invoke(channel, ...args) as Promise<never>
+
+const api: Api = {
+  getNow: invoke(CHANNELS.getNow),
+  getMain: invoke(CHANNELS.getMain),
+  capture: invoke(CHANNELS.capture),
+  complete: invoke(CHANNELS.complete),
+  reopen: invoke(CHANNELS.reopen),
+  postpone: invoke(CHANNELS.postpone),
+  plan: invoke(CHANNELS.plan),
+  setDue: invoke(CHANNELS.setDue),
+  rename: invoke(CHANNELS.rename),
+  remove: invoke(CHANNELS.remove),
+  drop: invoke(CHANNELS.drop),
+  rescheduleOverdue: invoke(CHANNELS.rescheduleOverdue),
+  undoBatch: invoke(CHANNELS.undoBatch),
+  undoRemove: invoke(CHANNELS.undoRemove),
+  addStep: invoke(CHANNELS.addStep),
+  createRoutine: invoke(CHANNELS.createRoutine),
+  updateRoutine: invoke(CHANNELS.updateRoutine),
+  getRoutineHistory: invoke(CHANNELS.getRoutineHistory),
+  recordRoutine: invoke(CHANNELS.recordRoutine),
+  removeRoutineRecord: invoke(CHANNELS.removeRoutineRecord),
+  startFocus: invoke(CHANNELS.startFocus),
+  extendFocus: invoke(CHANNELS.extendFocus),
+  stopFocus: invoke(CHANNELS.stopFocus),
+  acknowledgeAgents: invoke(CHANNELS.acknowledgeAgents),
+  dismissRecap: invoke(CHANNELS.dismissRecap),
+  getIntegrations: invoke(CHANNELS.getIntegrations),
+  setHook: invoke(CHANNELS.setHook),
+  clearAgentData: invoke(CHANNELS.clearAgentData),
+  getAppInfo: invoke(CHANNELS.getAppInfo),
+  setOpenAtLogin: invoke(CHANNELS.setOpenAtLogin),
+  openDataFolder: () => ipcRenderer.send(CHANNELS.openDataFolder),
+  copyText: (text) => ipcRenderer.send(CHANNELS.copyText, text),
+  setPinned: invoke(CHANNELS.setPinned),
+  openMain: (tab) => ipcRenderer.send(CHANNELS.openMain, tab),
+  windowAction: (action) => ipcRenderer.send(CHANNELS.windowAction, action),
+  hideWindow: () => ipcRenderer.send(CHANNELS.hideWindow),
+  onChanged: (listener) => {
+    const handler = (): void => listener()
+    ipcRenderer.on(CHANNELS.changed, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.changed, handler)
+  },
+  onNavigate: (listener) => {
+    const handler = (_e: unknown, tab: MainTab): void => listener(tab)
+    ipcRenderer.on(CHANNELS.navigate, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.navigate, handler)
+  },
+}
+
+contextBridge.exposeInMainWorld('api', api)

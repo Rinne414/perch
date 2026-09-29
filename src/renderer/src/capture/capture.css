@@ -1,0 +1,21 @@
+.capture {
+  -webkit-app-region: drag;
+  height: 100%;
+  padding: 14px 16px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.capture-title {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+}
+
+/* The launcher-style box uses a larger field than the float. */
+.capture .capture-field input {
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 16px;
+}

@@ -1,0 +1,37 @@
+.capture-field {
+  display: grid;
+  gap: 5px;
+  -webkit-app-region: no-drag;
+}
+
+.capture-field input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  user-select: text;
+  transition: border-color var(--fast);
+}
+
+.capture-field input::placeholder {
+  color: var(--faint);
+}
+
+.capture-field input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.capture-hint {
+  font-size: 12px;
+  color: var(--dim);
+  padding-inline: 2px;
+}
+
+.capture-date {
+  color: var(--info);
+  font-weight: 500;
+}

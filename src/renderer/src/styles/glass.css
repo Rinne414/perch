@@ -1,0 +1,64 @@
+/* Direction A, "glass": dark translucent acrylic; state is carried by small dots and one semantic color each. */
+:root {
+  --text: rgba(255, 255, 255, 0.94);
+  --dim: rgba(255, 255, 255, 0.58);
+  --faint: rgba(255, 255, 255, 0.36);
+  --line: rgba(255, 255, 255, 0.12);
+  --hover: rgba(255, 255, 255, 0.07);
+  --press: rgba(255, 255, 255, 0.12);
+  --tint: rgba(20, 22, 32, 0.42);
+  --field: rgba(255, 255, 255, 0.08);
+
+  --wait: #ffcf6b;
+  --done: #6ee7b0;
+  --late: #ff8a8a;
+  --info: #9db8ff;
+
+  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft JhengHei UI', 'PingFang TC', sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft JhengHei UI', sans-serif;
+
+  --radius-row: 8px;
+  --fast: 140ms;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font: 13.5px/1.45 var(--font-ui);
+  color: var(--text);
+  background: var(--tint);
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}

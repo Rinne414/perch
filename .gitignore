@@ -1,0 +1,29 @@
+# dependencies and build output
+node_modules/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+
+# local app data written during development (the database, agent inbox, raw hook payloads with prompts)
+.data/
+
+# the downloaded project this app replaced: someone else's code with no license, kept locally only
+legacy/
+
+# secrets never go in the repo
+.env
+.env.*
+
+# editors, OS and tools
+.vscode/
+.idea/
+.claude/settings.local.json
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# personal working notes for the next session (paths, accounts, machine setup); kept out of the public repo
+handoff.md

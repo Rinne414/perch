@@ -36,6 +36,9 @@ mac:
   icon: build/icon.png
   category: public.app-category.productivity
   identity: '-'
+  # Hardened runtime only matters for notarization; with an ad-hoc signature it makes macOS refuse
+  # to load Electron's own libraries (library validation), so the app would not start.
+  hardenedRuntime: false
   artifactName: Perch-${version}-mac.${ext}
 # Linux: the AppImage updates itself; the .deb is updated by installing the new one.
 linux:

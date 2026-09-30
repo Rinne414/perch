@@ -54,6 +54,10 @@ jobs:
           # No certificates in CI: macOS gets the ad-hoc signature set in electron-builder.yml.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      - name: List what was built
+        shell: bash
+        run: ls -la dist
+
       - uses: actions/upload-artifact@v4
         with:
           name: perch-${{ matrix.name }}

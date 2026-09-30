@@ -62,6 +62,34 @@ export interface AppInfo {
   /** Only an installed copy can start with Windows; a development run cannot. */
   readonly canOpenAtLogin: boolean
   readonly glass: GlassLevel
+  /** Electron accelerator of the quick-capture shortcut, e.g. "Control+Alt+N". */
+  readonly captureShortcut: string
+  /** When the newest backup copy of the database was taken; null before the first one. */
+  readonly lastBackupAt: number | null
+}
+
+/** Folders the settings page can open in Explorer. */
+export type AppFolder = 'data' | 'backups' | 'logs'
+export const APP_FOLDERS: readonly AppFolder[] = ['data', 'backups', 'logs']
+
+/**
+ * The update row in 設定. Nothing goes online until the person presses 檢查更新;
+ * a newer version then downloads by itself and waits for 重開更新 (or installs when Perch quits).
+ */
+export type UpdateStatus =
+  | { readonly state: 'idle' }
+  /** A development run: there is nothing to update. */
+  | { readonly state: 'unavailable' }
+  | { readonly state: 'checking' }
+  | { readonly state: 'latest' }
+  | { readonly state: 'downloading'; readonly version: string; readonly percent: number }
+  | { readonly state: 'ready'; readonly version: string }
+  | { readonly state: 'error'; readonly message: string }
+
+/** Where an export was written. */
+export interface ExportResult {
+  readonly folder: string
+  readonly files: readonly string[]
 }
 
 export interface RoutineRecord {
@@ -129,7 +157,19 @@ export interface Api {
   getAppInfo(): Promise<AppInfo>
   setOpenAtLogin(on: boolean): Promise<AppInfo>
   setGlass(level: GlassLevel): Promise<AppInfo>
-  openDataFolder(): void
+  /** Moves the quick-capture shortcut; null (and the old one kept) when another program holds the new one. */
+  setCaptureShortcut(accelerator: string): Promise<AppInfo | null>
+  openFolder(folder: AppFolder): void
+  /** Asks for a folder and writes a JSON and a Markdown copy of everything; null when cancelled. */
+  exportData(): Promise<ExportResult | null>
+  /** Opens a new GitHub issue with the version and Windows build filled in. */
+  reportProblem(): void
+  getUpdateStatus(): Promise<UpdateStatus>
+  /** Looks for a newer version on GitHub and starts downloading it. */
+  checkForUpdate(): Promise<UpdateStatus>
+  /** Restarts into the downloaded version. */
+  installUpdate(): void
+  onUpdateStatus(listener: (status: UpdateStatus) => void): () => void
   copyText(text: string): void
   setPinned(on: boolean): Promise<void>
   openMain(tab?: MainTab): void
@@ -176,7 +216,14 @@ export const CHANNELS = {
   getAppInfo: 'app:info',
   setOpenAtLogin: 'app:open-at-login',
   setGlass: 'app:glass',
-  openDataFolder: 'app:open-data',
+  setCaptureShortcut: 'app:capture-shortcut',
+  openFolder: 'app:open-folder',
+  exportData: 'app:export',
+  reportProblem: 'app:report-problem',
+  getUpdateStatus: 'update:get',
+  checkForUpdate: 'update:check',
+  installUpdate: 'update:install',
+  updateStatus: 'update:status',
   copyText: 'app:copy',
   setPinned: 'float:pin',
   openMain: 'main:open',

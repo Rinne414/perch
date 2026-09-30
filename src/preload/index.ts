@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { CHANNELS, type Api, type MainTab } from '@shared/ipc'
+import { CHANNELS, type Api, type MainTab, type UpdateStatus } from '@shared/ipc'
 
 /** The Api interface types each call; the bridge only forwards arguments. */
 const invoke =
@@ -44,7 +44,13 @@ const api: Api = {
   getAppInfo: invoke(CHANNELS.getAppInfo),
   setOpenAtLogin: invoke(CHANNELS.setOpenAtLogin),
   setGlass: invoke(CHANNELS.setGlass),
-  openDataFolder: () => ipcRenderer.send(CHANNELS.openDataFolder),
+  setCaptureShortcut: invoke(CHANNELS.setCaptureShortcut),
+  openFolder: (folder) => ipcRenderer.send(CHANNELS.openFolder, folder),
+  exportData: invoke(CHANNELS.exportData),
+  reportProblem: () => ipcRenderer.send(CHANNELS.reportProblem),
+  getUpdateStatus: invoke(CHANNELS.getUpdateStatus),
+  checkForUpdate: invoke(CHANNELS.checkForUpdate),
+  installUpdate: () => ipcRenderer.send(CHANNELS.installUpdate),
   copyText: (text) => ipcRenderer.send(CHANNELS.copyText, text),
   setPinned: invoke(CHANNELS.setPinned),
   openMain: (tab) => ipcRenderer.send(CHANNELS.openMain, tab),
@@ -54,6 +60,11 @@ const api: Api = {
     const handler = (): void => listener()
     ipcRenderer.on(CHANNELS.changed, handler)
     return () => ipcRenderer.removeListener(CHANNELS.changed, handler)
+  },
+  onUpdateStatus: (listener) => {
+    const handler = (_e: unknown, status: UpdateStatus): void => listener(status)
+    ipcRenderer.on(CHANNELS.updateStatus, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.updateStatus, handler)
   },
   onNavigate: (listener) => {
     const handler = (_e: unknown, tab: MainTab): void => listener(tab)

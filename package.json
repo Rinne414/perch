@@ -1,7 +1,7 @@
 {
   "name": "perch",
   "productName": "Perch",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "private": true,
   "description": "A local-first desktop reminder for people who run AI agents: capture fast, see what needs you now, and look back at what got done.",
   "main": "./out/main/index.js",
@@ -11,7 +11,8 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
-    "dist": "electron-vite build && electron-builder --win",
+    "dist": "electron-vite build && electron-builder --win --publish never",
+    "release": "node scripts/release.mjs",
     "icon": "node scripts/make-icon.mjs"
   },
   "pnpm": {
@@ -35,7 +36,8 @@
     "vitest": "5.0.2"
   },
   "dependencies": {
-    "chrono-node": "2.10.1"
+    "chrono-node": "2.10.1",
+    "electron-updater": "6.8.9"
   },
   "author": "Rinne414",
   "license": "GPL-3.0-or-later"

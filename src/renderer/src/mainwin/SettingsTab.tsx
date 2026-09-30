@@ -3,6 +3,7 @@ import { agentName } from '@shared/agents'
 import type { AgentIntegration, HookState, IntegrationsPayload, SourceUsage } from '@shared/integrations'
 import type { AppInfo, GlassLevel } from '@shared/ipc'
 import { useToast } from './Toast'
+import { DataSection, ShortcutRow, UpdateSection } from './Upkeep'
 import './settings.css'
 
 const STATE_LABEL: Readonly<Record<HookState, string>> = {
@@ -115,15 +116,8 @@ const GLASS: readonly { level: GlassLevel; label: string }[] = [
   { level: 'dense', label: '濃' },
 ]
 
-function GeneralSection(): React.JSX.Element {
-  const [info, setInfo] = useState<AppInfo | null>(null)
+function GeneralSection({ info, setInfo }: { info: AppInfo | null; setInfo: (next: AppInfo) => void }): React.JSX.Element {
   const show = useToast()
-  useEffect(() => {
-    window.api
-      .getAppInfo()
-      .then(setInfo)
-      .catch(() => show('讀不到程式設定'))
-  }, [show])
 
   const toggleLogin = (): void => {
     if (!info) return
@@ -177,25 +171,24 @@ function GeneralSection(): React.JSX.Element {
             ))}
           </div>
         </div>
-        <div className="r general">
-          <span className="name">資料位置</span>
-          <span className="path" title={info?.dataDir}>
-            {info?.dataDir}
-          </span>
-          <button className="btn" onClick={() => window.api.openDataFolder()}>
-            打開資料夾
-          </button>
-        </div>
+        <ShortcutRow info={info} onInfo={setInfo} />
       </div>
-      {info && <p className="faint set-empty">版本 {info.version} · 資料只存在這台電腦</p>}
     </section>
   )
 }
 
 export function SettingsTab(): React.JSX.Element {
   const [data, setData] = useState<IntegrationsPayload | null>(null)
+  const [info, setInfo] = useState<AppInfo | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const show = useToast()
+
+  useEffect(() => {
+    window.api
+      .getAppInfo()
+      .then(setInfo)
+      .catch(() => show('讀不到程式設定'))
+  }, [show])
 
   const load = useCallback(() => {
     window.api
@@ -294,7 +287,9 @@ export function SettingsTab(): React.JSX.Element {
         )}
       </section>
 
-      <GeneralSection />
+      <GeneralSection info={info} setInfo={setInfo} />
+      <DataSection info={info} />
+      <UpdateSection info={info} />
     </>
   )
 }

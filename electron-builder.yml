@@ -24,3 +24,10 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: Perch
   artifactName: Perch-Setup-${version}.${ext}
+# Written into the app as app-update.yml: 設定 → 檢查更新 reads the latest GitHub release of this repo.
+# Uploading is done by `pnpm run release` (scripts/release.mjs), never by electron-builder itself.
+publish:
+  provider: github
+  owner: Rinne414
+  repo: perch
+  releaseType: release

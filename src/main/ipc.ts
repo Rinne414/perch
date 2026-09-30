@@ -1,11 +1,18 @@
-import { app, BrowserWindow, clipboard, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { mkdirSync } from 'node:fs'
+import { release } from 'node:os'
+import { basename } from 'node:path'
 import { parsePast } from '@shared/capture'
 import { parseSchedule } from '@shared/schedule'
+import { isCaptureAccelerator } from '@shared/shortcut'
 import {
+  APP_FOLDERS,
   CHANNELS,
   GLASS_LEVELS,
   MAIN_TABS,
+  type AppFolder,
   type AppInfo,
+  type ExportResult,
   type BatchTarget,
   type CaptureTarget,
   type GlassLevel,
@@ -18,7 +25,10 @@ import { acknowledgeAgent } from './db/agents'
 import { completeItem, dropItem, reopenItem } from './db/items'
 import { clearAgentData } from './db/sources'
 import { transaction } from './db/transaction'
-import { dataDir } from './paths'
+import { backupsDir, dataDir } from './paths'
+import { listBackups } from './services/backup'
+import { writeExport } from './services/export'
+import { issueUrl } from './services/report'
 import { integrationsPayload, setHook } from './services/integrations'
 import {
   addStep,
@@ -45,6 +55,7 @@ const TARGETS: ReadonlySet<string> = new Set<CaptureTarget>(['today', 'inbox'])
 const PLANS: ReadonlySet<string> = new Set<PlanTarget>(['today', 'tomorrow', 'none'])
 const WINDOW_ACTIONS: ReadonlySet<string> = new Set<WindowAction>(['minimize', 'maximize', 'close'])
 const BATCH_TARGETS: ReadonlySet<string> = new Set<BatchTarget>(['today', 'tomorrow', 'none', 'drop'])
+const FOLDERS: ReadonlySet<string> = new Set<AppFolder>(APP_FOLDERS)
 const AGENT_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/
 
 function id(v: unknown): string {
@@ -188,6 +199,8 @@ function registerAppHandlers(ctx: AppContext): void {
     openAtLogin: app.isPackaged && app.getLoginItemSettings().openAtLogin,
     canOpenAtLogin: app.isPackaged,
     glass: ctx.settings().glass,
+    captureShortcut: ctx.settings().captureShortcut,
+    lastBackupAt: listBackups(backupsDir())[0]?.at ?? null,
   })
   ipcMain.handle(CHANNELS.getAppInfo, appInfo)
   ipcMain.handle(CHANNELS.setOpenAtLogin, (_e, on: unknown) => {
@@ -201,8 +214,55 @@ function registerAppHandlers(ctx: AppContext): void {
       return appInfo()
     }),
   )
-  ipcMain.on(CHANNELS.openDataFolder, () => void shell.openPath(dataDir()))
+  ipcMain.handle(CHANNELS.setCaptureShortcut, (_e, accelerator: unknown) => {
+    if (typeof accelerator !== 'string' || !isCaptureAccelerator(accelerator)) throw new Error('Invalid shortcut')
+    if (!ctx.moveCaptureShortcut(accelerator)) return null
+    updateSettings(ctx.db, { captureShortcut: accelerator })
+    return appInfo()
+  })
   ipcMain.on(CHANNELS.copyText, (_e, t: unknown) => clipboard.writeText(text(t)))
+}
+
+/** The folder picker, or TC_EXPORT_DIR in a development run so tests need no dialog. */
+async function exportFolder(win: BrowserWindow | null): Promise<{ folder: string; reveal: boolean } | null> {
+  const devDir = app.isPackaged ? undefined : process.env['TC_EXPORT_DIR']
+  if (devDir) return { folder: devDir, reveal: false }
+  const options: Electron.OpenDialogOptions = {
+    title: '匯出到哪個資料夾？',
+    defaultPath: app.getPath('documents'),
+    buttonLabel: '匯出到這裡',
+    properties: ['openDirectory', 'createDirectory'],
+  }
+  const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+  const folder = picked.canceled ? undefined : picked.filePaths[0]
+  return folder ? { folder, reveal: true } : null
+}
+
+/** Backups, logs, export, problem reports and updates. */
+function registerUpkeepHandlers(ctx: AppContext): void {
+  const folders: Readonly<Record<AppFolder, () => string>> = {
+    data: dataDir,
+    backups: backupsDir,
+    logs: () => ctx.log.dir,
+  }
+  ipcMain.on(CHANNELS.openFolder, (_e, f: unknown) => {
+    if (typeof f !== 'string' || !FOLDERS.has(f)) return
+    const dir = folders[f as AppFolder]()
+    mkdirSync(dir, { recursive: true })
+    void shell.openPath(dir)
+  })
+  ipcMain.handle(CHANNELS.exportData, async (e): Promise<ExportResult | null> => {
+    const target = await exportFolder(BrowserWindow.fromWebContents(e.sender))
+    if (!target) return null
+    const { json, markdown } = writeExport(ctx.db, target.folder, app.getVersion(), ctx.settings(), Date.now())
+    ctx.log.info('Exported all data')
+    if (target.reveal) shell.showItemInFolder(markdown)
+    return { folder: target.folder, files: [basename(json), basename(markdown)] }
+  })
+  ipcMain.on(CHANNELS.reportProblem, () => void shell.openExternal(issueUrl(app.getVersion(), release(), process.arch)))
+  ipcMain.handle(CHANNELS.getUpdateStatus, () => ctx.updater.status())
+  ipcMain.handle(CHANNELS.checkForUpdate, () => ctx.updater.check())
+  ipcMain.on(CHANNELS.installUpdate, () => ctx.updater.install())
 }
 
 function registerWindowHandlers(ctx: AppContext): void {
@@ -234,5 +294,6 @@ export function registerIpc(ctx: AppContext): void {
   registerItemHandlers(ctx, focus)
   registerIntegrationHandlers(ctx)
   registerAppHandlers(ctx)
+  registerUpkeepHandlers(ctx)
   registerWindowHandlers(ctx)
 }

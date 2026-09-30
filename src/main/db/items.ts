@@ -219,6 +219,12 @@ export function deleteItemsBySource(db: DatabaseSync, source: string): number {
   return Number(db.prepare('DELETE FROM items WHERE source = ?').run(source).changes)
 }
 
+/** Every item, finished or not, oldest first. */
+export function listAllItems(db: DatabaseSync): Item[] {
+  const rows = db.prepare('SELECT * FROM items ORDER BY created_at, sort_order').all() as unknown as ItemRow[]
+  return rows.map(toItem)
+}
+
 /** Open tasks, ideas and steps, plus every routine. */
 export function listOpenItems(db: DatabaseSync): Item[] {
   const rows = db

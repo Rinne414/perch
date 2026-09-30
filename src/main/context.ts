@@ -2,6 +2,8 @@ import { BrowserWindow } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
 import { CHANNELS, type MainTab } from '@shared/ipc'
 import type { HookSetup } from '../integrations/install'
+import type { Log } from './log'
+import type { Updater } from './updater'
 import { readSettings, type AppSettings } from './services/settings'
 
 export interface AppContext {
@@ -15,6 +17,10 @@ export interface AppContext {
   openMain(tab?: MainTab): void
   isFloatPinned(): boolean
   setFloatPinned(on: boolean): void
+  readonly log: Log
+  readonly updater: Updater
+  /** Registers the new capture shortcut and drops the old one; false when another program holds it. */
+  moveCaptureShortcut(accelerator: string): boolean
 }
 
 export function broadcastChange(): void {

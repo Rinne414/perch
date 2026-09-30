@@ -71,9 +71,17 @@ const MIGRATIONS: readonly string[] = [
   `,
 ]
 
+const userVersion = (db: DatabaseSync): number =>
+  (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
+
+/** True when a database that already holds data is about to be changed by a migration. */
+export function needsUpgrade(db: DatabaseSync): boolean {
+  const v = userVersion(db)
+  return v > 0 && v < MIGRATIONS.length
+}
+
 export function migrate(db: DatabaseSync): void {
-  const row = db.prepare('PRAGMA user_version').get() as { user_version: number }
-  for (let v = row.user_version; v < MIGRATIONS.length; v++) {
+  for (let v = userVersion(db); v < MIGRATIONS.length; v++) {
     db.exec('BEGIN')
     try {
       db.exec(MIGRATIONS[v])

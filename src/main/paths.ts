@@ -14,6 +14,9 @@ export function dataDir(): string {
   return dir
 }
 
+export const backupsDir = (): string => join(dataDir(), 'backups')
+export const logsDir = (): string => join(dataDir(), 'logs')
+
 /**
  * A development run keeps its Chromium profile and single-instance lock apart
  * from an installed copy, and from other test runs when TC_DATA_DIR is set.

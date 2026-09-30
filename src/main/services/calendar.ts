@@ -15,7 +15,8 @@ const NO_TIME_HOUR = 12
 
 const isStep = (e: TimelineEvent): boolean => typeof e.data?.['stepOf'] === 'string'
 
-function entryOf(e: TimelineEvent): TimelineEntry | null {
+/** One timeline event as a line of a day, or null for bookkeeping events (created, reopened). */
+export function entryOf(e: TimelineEvent): TimelineEntry | null {
   const base = { id: e.id, at: e.at, title: e.title, detail: null as string | null, hasTime: true }
   const kind = ((): EntryKind | null => {
     switch (e.type) {

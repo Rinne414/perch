@@ -1,7 +1,7 @@
 // Builds the Windows installer and publishes it as a GitHub release, together with the
 // latest.yml and blockmap that 設定 → 檢查更新 reads. Uses the gh CLI's login; no token in files.
 // Run: pnpm run release [-- --notes-file notes.md]   (without a notes file GitHub writes them)
-import { execFileSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -24,7 +24,7 @@ if (read('git', ['rev-parse', 'origin/main']) !== head) fail('HEAD is not origin
 if (read('git', ['tag', '--list', tag])) fail(`${tag} is already released; bump the version in package.json`)
 
 // pnpm is a .cmd script on Windows, which only starts through a shell; the command is fixed text.
-execFileSync('pnpm', ['run', 'dist'], { stdio: 'inherit', shell: true })
+execSync('pnpm run dist', { stdio: 'inherit' })
 
 const files = [`Perch-Setup-${version}.exe`, `Perch-Setup-${version}.exe.blockmap`, 'latest.yml'].map((f) => join('dist', f))
 for (const f of files) if (!existsSync(f)) fail(`${f} was not built`)

@@ -52,6 +52,8 @@ export function createUpdater(log: Log, dataDir: string): Updater {
     debug: () => undefined,
   }
   autoUpdater.autoDownload = true
+  // Releases carry the full installer; a web installer would fetch a payload that is not checked.
+  autoUpdater.disableWebInstaller = true
   // A development run only goes as far as downloading: what it fetched is a test file, not an installer.
   autoUpdater.autoInstallOnAppQuit = app.isPackaged
   autoUpdater.on('checking-for-update', state.checking)

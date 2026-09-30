@@ -21,16 +21,23 @@ function grabScreen(rect: { x: number; y: number; width: number; height: number 
   })
 }
 
+const RAISE_SETTLE_MS = 300
 const BACKDROP_MARGIN = 60
 const BACKDROP_SETTLE_MS = 900
-/** The wallpaper from the design mockups, so public screenshots never show what is really behind the glass. */
-const BACKDROP_HTML = `<body style="margin:0;height:100vh;background:
-  radial-gradient(55% 45% at 18% 22%, #3f74e0 0%, transparent 70%),
-  radial-gradient(50% 55% at 85% 30%, #9054d8 0%, transparent 70%),
-  radial-gradient(65% 55% at 55% 95%, #1aa39c 0%, transparent 70%), #0d1531"></body>`
+/**
+ * Known backgrounds, so screenshots never show what is really behind the glass:
+ * the mockups' wallpaper, and a plain light page like a browser or document window.
+ */
+const BACKDROPS: Readonly<Record<string, string>> = {
+  wallpaper: `radial-gradient(55% 45% at 18% 22%, #3f74e0 0%, transparent 70%),
+    radial-gradient(50% 55% at 85% 30%, #9054d8 0%, transparent 70%),
+    radial-gradient(65% 55% at 55% 95%, #1aa39c 0%, transparent 70%), #0d1531`,
+  light: `linear-gradient(#f3f3f3 0 44px, #ffffff 44px)`,
+}
 
-/** TC_SCREENSHOT_BACKDROP: puts a neutral wallpaper window right behind the captured one. */
+/** TC_SCREENSHOT_BACKDROP=wallpaper|light: puts a known background window right behind the captured one. */
 async function showBackdrop(front: BrowserWindow): Promise<void> {
+  const background = BACKDROPS[process.env['TC_SCREENSHOT_BACKDROP'] ?? ''] ?? BACKDROPS['wallpaper']
   const b = front.getBounds()
   const backdrop = new BrowserWindow({
     x: b.x - BACKDROP_MARGIN,
@@ -43,7 +50,8 @@ async function showBackdrop(front: BrowserWindow): Promise<void> {
     show: false,
   })
   backdrop.setAlwaysOnTop(true, 'floating')
-  await backdrop.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(BACKDROP_HTML)}`)
+  const html = `<body style="margin:0;height:100vh;background:${background}"></body>`
+  await backdrop.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
   backdrop.showInactive()
   await new Promise((resolve) => setTimeout(resolve, BACKDROP_SETTLE_MS))
 }
@@ -71,6 +79,8 @@ export function captureIfRequested(win: BrowserWindow): void {
       // The grab reads real screen pixels, so nothing else may sit on top.
       shown.setAlwaysOnTop(true, 'screen-saver')
       shown.moveTop()
+      // Give the window manager a moment to apply the new order before reading pixels.
+      await new Promise((resolve) => setTimeout(resolve, RAISE_SETTLE_MS))
       await grabScreen(screen.dipToScreenRect(shown, shown.getBounds()), target)
       app.quit()
     }, SETTLE_MS)

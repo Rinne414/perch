@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { agentName } from '@shared/agents'
 import type { AgentIntegration, HookState, IntegrationsPayload, SourceUsage } from '@shared/integrations'
-import type { AppInfo } from '@shared/ipc'
+import type { AppInfo, GlassLevel } from '@shared/ipc'
 import { useToast } from './Toast'
+import './settings.css'
 
 const STATE_LABEL: Readonly<Record<HookState, string>> = {
   installed: '已連線',
@@ -108,6 +109,12 @@ function SourceRow({ usage, onClear }: { usage: SourceUsage; onClear: () => void
   )
 }
 
+const GLASS: readonly { level: GlassLevel; label: string }[] = [
+  { level: 'light', label: '淡' },
+  { level: 'mid', label: '中' },
+  { level: 'dense', label: '濃' },
+]
+
 function GeneralSection(): React.JSX.Element {
   const [info, setInfo] = useState<AppInfo | null>(null)
   const show = useToast()
@@ -147,6 +154,28 @@ function GeneralSection(): React.JSX.Element {
           >
             <i />
           </button>
+        </div>
+        <div className="r general">
+          <span className="name">玻璃濃淡</span>
+          <span className="sub">後面常是白色視窗就選濃；桌布比較暗、想多透一點就選淡</span>
+          <div className="seg" role="radiogroup" aria-label="玻璃濃淡">
+            {GLASS.map(({ level, label }) => (
+              <button
+                key={level}
+                role="radio"
+                aria-checked={info?.glass === level}
+                className={info?.glass === level ? 'on' : undefined}
+                onClick={() =>
+                  window.api
+                    .setGlass(level)
+                    .then(setInfo)
+                    .catch(() => show('沒有改成功，再試一次看看'))
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="r general">
           <span className="name">資料位置</span>

@@ -84,7 +84,7 @@ export function InboxTab(props: Props): React.JSX.Element {
   return (
     <>
       <header className="ph">
-        <h1>收件匣</h1>
+        <h1>隨手記</h1>
         <p>還沒排日期的事</p>
       </header>
       <CaptureField
@@ -95,12 +95,12 @@ export function InboxTab(props: Props): React.JSX.Element {
       />
 
       {inbox.length > 0 ? (
-        <section className="sec" aria-label="收件匣">
+        <section className="sec" aria-label="隨手記">
           <InboxList {...props} items={inbox} />
         </section>
       ) : (
         <div className="mw-empty">
-          <p>收件匣是空的。</p>
+          <p>隨手記是空的。</p>
           <p className="faint">在任何地方按 Ctrl+Alt+N，想到的事就會進來這裡。</p>
         </div>
       )}

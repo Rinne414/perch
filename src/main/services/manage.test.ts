@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import type { DatabaseSync } from 'node:sqlite'
-import { applyAgentEvent } from '../db/agents'
+import { acknowledgeAgent, applyAgentEvent } from '../db/agents'
 import { openDatabase } from '../db/connection'
 import { listEvents } from '../db/events'
 import { completeItem, createItem, dropItem, getItem, listOpenItems, reopenItem } from '../db/items'
@@ -213,6 +213,17 @@ test('the main window lists sessions still working, apart from those waiting on 
 
   expect(payload.running.map((s) => s.id)).toEqual(['codex:a'])
   expect(payload.attention.map((s) => s.id)).toEqual(['claude-code:b'])
+})
+
+test('sessions already seen stay listed under recent agents instead of disappearing', () => {
+  applyAgentEvent(db, { v: 1, agent: 'codex', sessionId: 'a', status: 'done', at: NOW - 60_000 }, NOW)
+  applyAgentEvent(db, { v: 1, agent: 'codex', sessionId: 'b', status: 'failed', at: NOW - 30_000 }, NOW)
+  acknowledgeAgent(db, 'codex:a', NOW)
+
+  const payload = getMainPayload(db, NOW, DEFAULT_SETTINGS)
+
+  expect(payload.attention.map((s) => s.id)).toEqual(['codex:b'])
+  expect(payload.recentAgents.map((s) => s.id)).toEqual(['codex:a'])
 })
 
 describe('agent sources', () => {

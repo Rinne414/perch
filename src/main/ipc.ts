@@ -1,11 +1,14 @@
 import { app, BrowserWindow, clipboard, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import { parsePast } from '@shared/capture'
+import { parseSchedule } from '@shared/schedule'
 import {
   CHANNELS,
+  GLASS_LEVELS,
   MAIN_TABS,
   type AppInfo,
   type BatchTarget,
   type CaptureTarget,
+  type GlassLevel,
   type MainTab,
   type PlanTarget,
   type WindowAction,
@@ -29,9 +32,11 @@ import {
   setDue,
   updateRoutine,
 } from './services/manage'
+import { addManualEntry, captureOn, dayView, monthMarks, removeManualEntry } from './services/calendar'
 import { createFocus, type Focus } from './services/focus'
 import { captureText, dismissRecap, getNowPayload, postponeItem } from './services/now'
 import { recordRoutine, removeRoutineRecord, routineHistory } from './services/routines'
+import { updateSettings } from './services/settings'
 
 const MAX_ID = 128
 const MAX_TEXT = 2000
@@ -60,8 +65,19 @@ function oneOf<T extends string>(allowed: ReadonlySet<string>, v: unknown, what:
 /** An interval in days, or null for a tracker without one. */
 const interval = (v: unknown): number | null => (v === null ? null : Number(v))
 
+/** Fixed weekly times, or null / missing for none. */
+const schedule = (v: unknown) => (v === null || v === undefined ? null : parseSchedule(v))
+
 function recordId(v: unknown): number {
   if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 1) throw new Error('Invalid record id')
+  return v
+}
+
+const DAY_KEY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
+const MAX_RANGE_DAYS = 60
+
+function day(v: unknown): string {
+  if (typeof v !== 'string' || !DAY_KEY.test(v)) throw new Error('Invalid day')
   return v
 }
 
@@ -116,11 +132,11 @@ function registerItemHandlers(ctx: AppContext, focus: Focus): void {
   handle(CHANNELS.undoBatch, (token: unknown) => batches.restore(db, text(token), Date.now()))
   handle(CHANNELS.undoRemove, (i: unknown) => trash.restore(db, id(i)))
   handle(CHANNELS.addStep, (p: unknown, t: unknown) => void addStep(db, id(p), text(t), Date.now()))
-  handle(CHANNELS.createRoutine, (t: unknown, days: unknown) => {
-    createRoutine(db, text(t), interval(days), Date.now())
+  handle(CHANNELS.createRoutine, (t: unknown, days: unknown, s: unknown) => {
+    createRoutine(db, text(t), interval(days), Date.now(), schedule(s))
   })
-  handle(CHANNELS.updateRoutine, (i: unknown, t: unknown, days: unknown) => {
-    updateRoutine(db, id(i), text(t), interval(days), Date.now())
+  handle(CHANNELS.updateRoutine, (i: unknown, t: unknown, days: unknown, s: unknown) => {
+    updateRoutine(db, id(i), text(t), interval(days), Date.now(), schedule(s))
   })
   ipcMain.handle(CHANNELS.getRoutineHistory, (_e, i: unknown) => routineHistory(db, id(i)))
   handle(CHANNELS.recordRoutine, (i: unknown, when: unknown) => {
@@ -135,6 +151,16 @@ function registerItemHandlers(ctx: AppContext, focus: Focus): void {
   })
   handle(CHANNELS.extendFocus, () => void focus.extend())
   handle(CHANNELS.stopFocus, () => focus.stop(db, Date.now()))
+  ipcMain.handle(CHANNELS.getMonth, (_e, from: unknown, to: unknown) => {
+    const [a, b] = [day(from), day(to)]
+    const span = (Date.parse(b) - Date.parse(a)) / 86_400_000
+    if (span < 0 || span > MAX_RANGE_DAYS) throw new Error('Invalid range')
+    return monthMarks(db, a, b, ctx.settings())
+  })
+  ipcMain.handle(CHANNELS.getDay, (_e, d: unknown) => dayView(db, day(d), Date.now(), ctx.settings()))
+  handle(CHANNELS.captureOn, (t: unknown, d: unknown) => void captureOn(db, text(t), day(d), Date.now(), ctx.settings()))
+  handle(CHANNELS.addManualEntry, (d: unknown, t: unknown) => void addManualEntry(db, day(d), text(t), Date.now(), ctx.settings()))
+  handle(CHANNELS.removeManualEntry, (r: unknown) => removeManualEntry(db, recordId(r)))
   handle(CHANNELS.acknowledgeAgents, (list: unknown) => {
     const now = Date.now()
     transaction(db, () => ids(list).forEach((i) => acknowledgeAgent(db, i, now)))
@@ -155,21 +181,26 @@ function registerIntegrationHandlers(ctx: AppContext): void {
   )
 }
 
-function appInfo(): AppInfo {
-  return {
+function registerAppHandlers(ctx: AppContext): void {
+  const appInfo = (): AppInfo => ({
     version: app.getVersion(),
     dataDir: dataDir(),
     openAtLogin: app.isPackaged && app.getLoginItemSettings().openAtLogin,
     canOpenAtLogin: app.isPackaged,
-  }
-}
-
-function registerAppHandlers(): void {
+    glass: ctx.settings().glass,
+  })
   ipcMain.handle(CHANNELS.getAppInfo, appInfo)
   ipcMain.handle(CHANNELS.setOpenAtLogin, (_e, on: unknown) => {
     if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: on === true })
     return appInfo()
   })
+  ipcMain.handle(
+    CHANNELS.setGlass,
+    mutating(ctx, (level: unknown) => {
+      updateSettings(ctx.db, { glass: oneOf<GlassLevel>(new Set(GLASS_LEVELS), level, 'glass level') })
+      return appInfo()
+    }),
+  )
   ipcMain.on(CHANNELS.openDataFolder, () => void shell.openPath(dataDir()))
   ipcMain.on(CHANNELS.copyText, (_e, t: unknown) => clipboard.writeText(text(t)))
 }
@@ -202,6 +233,6 @@ export function registerIpc(ctx: AppContext): void {
   ipcMain.handle(CHANNELS.getMain, () => getMainPayload(db, Date.now(), ctx.settings(), focus.current(db)))
   registerItemHandlers(ctx, focus)
   registerIntegrationHandlers(ctx)
-  registerAppHandlers()
+  registerAppHandlers(ctx)
   registerWindowHandlers(ctx)
 }

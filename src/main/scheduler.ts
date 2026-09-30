@@ -5,6 +5,7 @@ import { listOpenItems, rolloverPlans, updateItem } from './db/items'
 import { transaction } from './db/transaction'
 import { notify } from './notify'
 import { agentAlert, agentsToNotify, dueAlert, dueItemsToNotify } from './services/reminders'
+import { scheduleAlerts } from './services/scheduleAlerts'
 
 const TICK_MS = 20_000
 const AGENT_LOOKBACK_MS = 2 * 3_600_000
@@ -30,6 +31,8 @@ export function startScheduler(ctx: AppContext, beforeTick: () => void = () => u
       notify(alert, ctx.showFloat)
       changed = true
     }
+
+    for (const alert of scheduleAlerts(db, now)) notify(alert, ctx.showFloat)
 
     for (const s of agentsToNotify(listAgentSessions(db, now - AGENT_LOOKBACK_MS), announced, now)) {
       announced.set(s.id, s.attentionAt!)

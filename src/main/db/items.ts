@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite'
-import type { Item, ItemKind, ItemPatch, NewItem, Priority } from '@shared/types'
+import type { Item, ItemKind, ItemPatch, NewItem, Priority, RoutineSchedule } from '@shared/types'
 import { appendEvent } from './events'
 import { transaction } from './transaction'
 
@@ -24,6 +24,7 @@ interface ItemRow {
   last_done_at: number | null
   notified_at: number | null
   source: string
+  schedule: string | null
 }
 
 const toItem = (r: ItemRow): Item => ({
@@ -46,6 +47,7 @@ const toItem = (r: ItemRow): Item => ({
   lastDoneAt: r.last_done_at,
   notifiedAt: r.notified_at,
   source: r.source,
+  schedule: r.schedule ? (JSON.parse(r.schedule) as RoutineSchedule) : null,
 })
 
 /** Patchable fields and their columns. Only these names ever reach SQL. */
@@ -57,6 +59,7 @@ const PATCH_COLUMNS: Record<keyof ItemPatch, string> = {
   dueHasTime: 'due_has_time',
   plannedFor: 'planned_for',
   intervalDays: 'interval_days',
+  schedule: 'schedule',
   sortOrder: 'sort_order',
   kind: 'kind',
   notifiedAt: 'notified_at',
@@ -64,6 +67,7 @@ const PATCH_COLUMNS: Record<keyof ItemPatch, string> = {
 
 const toSql = (v: unknown): SQLInputValue => {
   if (typeof v === 'boolean') return v ? 1 : 0
+  if (typeof v === 'object' && v !== null) return JSON.stringify(v)
   return (v ?? null) as SQLInputValue
 }
 
@@ -92,8 +96,8 @@ export function createItem(db: DatabaseSync, input: NewItem, now: number): Item 
       : 0
     db.prepare(
       `INSERT INTO items (id, kind, title, notes, parent_id, sort_order, priority, created_at,
-         updated_at, due_at, due_has_time, planned_for, interval_days, last_done_at, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         updated_at, due_at, due_has_time, planned_for, interval_days, last_done_at, source, schedule)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       input.kind,
@@ -110,6 +114,7 @@ export function createItem(db: DatabaseSync, input: NewItem, now: number): Item 
       input.intervalDays ?? null,
       input.lastDoneAt ?? null,
       source,
+      input.schedule ? JSON.stringify(input.schedule) : null,
     )
     if (!parentId) {
       appendEvent(db, { at: now, type: 'item.created', title, itemId: id, source })
@@ -186,7 +191,7 @@ export type ItemSnapshot = readonly Readonly<ItemRow>[]
 
 const COLUMNS = [
   'id', 'kind', 'title', 'notes', 'parent_id', 'sort_order', 'priority', 'created_at', 'updated_at', 'due_at',
-  'due_has_time', 'planned_for', 'done_at', 'dropped_at', 'postpone_count', 'interval_days', 'last_done_at', 'notified_at', 'source',
+  'due_has_time', 'planned_for', 'done_at', 'dropped_at', 'postpone_count', 'interval_days', 'last_done_at', 'notified_at', 'source', 'schedule',
 ] as const satisfies readonly (keyof ItemRow)[]
 
 /** Deletes an item with its steps and returns what was removed. */

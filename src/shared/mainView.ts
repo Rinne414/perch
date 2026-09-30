@@ -1,6 +1,7 @@
 import { dayKey } from './day'
 import { bucketOf, firstDayOf, isTopLevelWork, nextSteps, routineState, type ListSettings, type RoutineState } from './lists'
 import { todayEntries, type TodayEntry } from './now'
+import { occurrencesOn, type Occurrence } from './schedule'
 import type { Item } from './types'
 
 export interface UpcomingEntry {
@@ -25,6 +26,8 @@ export interface MainView {
   readonly routines: readonly RoutineState[]
   /** Steps per parent id, open and done, in their order. */
   readonly steps: Readonly<Record<string, readonly Item[]>>
+  /** Fixed-time routines of today, including the ones already over. */
+  readonly schedule: readonly Occurrence[]
 }
 
 /** 0 = due, 1 = waiting for its interval, 2 = tracker without an interval. */
@@ -84,5 +87,6 @@ export function buildMainView(
       .map((i) => routineState(i, day, settings.dayStartHour))
       .sort(byRoutineUrgency),
     steps: grouped,
+    schedule: occurrencesOn(open, day),
   }
 }

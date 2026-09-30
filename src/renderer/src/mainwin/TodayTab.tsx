@@ -6,9 +6,10 @@ import type { TodayEntry } from '@shared/now'
 import type { Item } from '@shared/types'
 import { CaptureField } from '../components/CaptureField'
 import { FocusArea, FocusStart } from '../components/Focus'
+import { ScheduleRow } from '../components/ScheduleRow'
 import { AgentRow, RoutineRow } from '../float/rows'
 import { stepCount, TaskRow } from './TaskRow'
-import { DoneToday, OverdueBatch, RunningAgents } from './TodaySections'
+import { DoneToday, OverdueBatch } from './TodaySections'
 import { useAction } from './Toast'
 
 interface Props {
@@ -58,7 +59,8 @@ export function TodayTab({ payload, at, selected, onOpen }: Props): React.JSX.El
   const dueRoutines = view.routines
     .filter((r) => r.isDue)
     .map((r) => ({ item: r.item, daysSince: r.daysSince, overdueBy: -(r.dueIn ?? 0) }))
-  const nothing = view.today.length + view.upcoming.length + attention.length + dueRoutines.length === 0
+  const nothing =
+    view.today.length + view.upcoming.length + attention.length + dueRoutines.length + view.schedule.length === 0
   const overdueIds = view.today.filter((e) => e.overdueDays > 0).map((e) => e.item.id)
 
   return (
@@ -73,6 +75,17 @@ export function TodayTab({ payload, at, selected, onOpen }: Props): React.JSX.El
         placeholder="記點什麼… 例：明天下午3點 交報告（沒寫日期就排今天）"
       />
 
+      {view.schedule.length > 0 && (
+        <section className="sec" aria-labelledby="mw-schedule">
+          <h2 id="mw-schedule">今天的行程</h2>
+          <ul>
+            {view.schedule.map((o) => (
+              <ScheduleRow key={`${o.item.id}@${o.startAt}`} occurrence={o} now={at} />
+            ))}
+          </ul>
+        </section>
+      )}
+
       {attention.length > 0 && (
         <section className="sec" aria-labelledby="mw-agents">
           <h2 id="mw-agents">
@@ -85,8 +98,6 @@ export function TodayTab({ payload, at, selected, onOpen }: Props): React.JSX.El
           </ul>
         </section>
       )}
-
-      <RunningAgents sessions={payload.running} at={at} />
 
       {view.today.length > 0 && (
         <section className="sec" aria-labelledby="mw-today">
@@ -166,7 +177,7 @@ export function TodayTab({ payload, at, selected, onOpen }: Props): React.JSX.El
       {nothing && (
         <div className="mw-empty">
           <p>今天沒有排事情。</p>
-          <p className="faint">上面打一行就會排進今天；收件匣裡的事也可以排過來。</p>
+          <p className="faint">上面打一行就會排進今天；隨手記裡的事也可以排過來。</p>
         </div>
       )}
 

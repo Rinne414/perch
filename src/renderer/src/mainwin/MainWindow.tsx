@@ -3,14 +3,16 @@ import { dayTitle } from '@shared/format'
 import { MAIN_TABS, type MainPayload, type MainTab } from '@shared/ipc'
 import type { Item } from '@shared/types'
 import {
+  AgentIcon,
   CalendarIcon,
-  InboxIcon,
+  NoteIcon,
   RoutineIcon,
   SettingsIcon,
-  TimelineIcon,
   TodayIcon,
   WindowIcon,
 } from '../components/Icons'
+import { AgentsTab } from './AgentsTab'
+import { CalendarTab } from './CalendarTab'
 import { InboxTab } from './InboxTab'
 import { ItemDetail } from './ItemDetail'
 import { RoutinesTab } from './RoutinesTab'
@@ -27,16 +29,11 @@ interface TabInfo {
 
 const TABS: Readonly<Record<MainTab, TabInfo>> = {
   today: { label: '今天', icon: TodayIcon },
-  inbox: { label: '收件匣', icon: InboxIcon },
+  inbox: { label: '隨手記', icon: NoteIcon },
+  agents: { label: 'Agent', icon: AgentIcon },
   routines: { label: '例行', icon: RoutineIcon },
-  timeline: { label: '時間軸', icon: TimelineIcon },
   calendar: { label: '日曆', icon: CalendarIcon },
   settings: { label: '設定', icon: SettingsIcon },
-}
-
-const PLACEHOLDER: Partial<Record<MainTab, string>> = {
-  timeline: '之後會在這裡回頭看每天做了什麼、agent 跑了什麼，漏記的也可以補上。',
-  calendar: '之後會在這裡看整個月：哪天有截止、哪天排了什麼。',
 }
 
 function initialTab(): MainTab {
@@ -46,9 +43,10 @@ function initialTab(): MainTab {
 
 function counts(payload: MainPayload | null): Partial<Record<MainTab, number>> {
   if (!payload) return {}
-  const { view } = payload
+  const { view, attention } = payload
   return {
     today: view.today.length,
+    agents: attention.length,
     inbox: view.inbox.length,
     routines: view.routines.filter((r) => r.isDue).length,
   }
@@ -128,22 +126,14 @@ function Content({ tab, payload, at, selected, onOpen }: {
       return <TodayTab payload={payload} at={at} selected={selected} onOpen={onOpen} />
     case 'inbox':
       return <InboxTab payload={payload} at={at} selected={selected} onOpen={onOpen} />
+    case 'agents':
+      return <AgentsTab payload={payload} at={at} />
     case 'routines':
-      return <RoutinesTab payload={payload} />
+      return <RoutinesTab payload={payload} at={at} />
     case 'settings':
       return <SettingsTab />
-    default:
-      return (
-        <>
-          <header className="ph">
-            <h1>{TABS[tab].label}</h1>
-          </header>
-          <div className="mw-empty centered">
-            <p className="strong">還在做</p>
-            <p>{PLACEHOLDER[tab]}</p>
-          </div>
-        </>
-      )
+    case 'calendar':
+      return <CalendarTab payload={payload} />
   }
 }
 

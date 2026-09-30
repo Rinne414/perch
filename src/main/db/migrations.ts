@@ -65,6 +65,10 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE items ADD COLUMN dropped_at INTEGER;
   `,
+  // Fixed weekly times of a routine, as JSON (RoutineSchedule).
+  `
+  ALTER TABLE items ADD COLUMN schedule TEXT;
+  `,
 ]
 
 export function migrate(db: DatabaseSync): void {

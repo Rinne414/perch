@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
 import { addDays, dayKey } from '@shared/day'
-import { applyAgentEvent } from './db/agents'
+import { acknowledgeAgent, applyAgentEvent } from './db/agents'
 import { completeItem, createItem, listOpenItems } from './db/items'
 import { transaction } from './db/transaction'
 
@@ -44,12 +44,30 @@ export function seedIfRequested(db: DatabaseSync, dayStartHour: number): void {
     createItem(db, { kind: 'task', title: '交季報', dueAt: at(17) + 2 * DAY, dueHasTime: true }, now - DAY)
     createItem(db, { kind: 'task', title: '整理 Hindsight 筆記', plannedFor: addDays(today, 5) }, now - DAY)
     createItem(db, { kind: 'routine', title: '剪頭髮', intervalDays: 45 }, now - 7 * DAY)
+    const work = {
+      slots: [
+        { weekday: 3, start: '16:00', end: '19:00' },
+        { weekday: 4, start: '18:30', end: '21:30' },
+      ],
+      remindMinutes: 30,
+    }
+    createItem(db, { kind: 'routine', title: '上班', schedule: work }, now - 30 * DAY)
     const yesterdayWork = createItem(db, { kind: 'task', title: '修好登入頁' }, now - 2 * DAY)
     completeItem(db, yesterdayWork.id, now - DAY)
     const doneToday = createItem(db, { kind: 'task', title: '回覆房東', plannedFor: today }, now - DAY)
     completeItem(db, doneToday.id, now - 10 * MIN)
 
-    applyAgentEvent(db, { v: 1, agent: 'codex', sessionId: 'y1', status: 'done', cwd: cwd('blog'), at: now - DAY }, now)
+    applyAgentEvent(
+      db,
+      { v: 1, agent: 'codex', sessionId: 'y1', status: 'done', cwd: cwd('blog'), title: '修 RSS', detail: 'RSS 已改用絕對網址', at: now - DAY },
+      now,
+    )
+    applyAgentEvent(
+      db,
+      { v: 1, agent: 'claude-code', sessionId: 'y2', status: 'failed', cwd: cwd('blog'), title: '升級 Astro', detail: 'API 錯誤：overloaded', at: now - DAY - 3 * 3_600_000 },
+      now,
+    )
+    acknowledgeAgent(db, 'claude-code:y2', now - DAY)
     applyAgentEvent(
       db,
       { v: 1, agent: 'claude-code', sessionId: 'c1', status: 'running', cwd: cwd('perch'), title: '做浮窗', at: now - 20 * MIN },

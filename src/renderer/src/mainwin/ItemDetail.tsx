@@ -8,6 +8,7 @@ import { DueEditor } from './DueEditor'
 import { sourceLabel } from './TaskRow'
 import { useAction } from './Toast'
 import { useDrop, useRemove } from './useRemove'
+import './panel.css'
 
 interface Props {
   readonly item: Item

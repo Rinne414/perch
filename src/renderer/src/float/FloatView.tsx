@@ -3,6 +3,7 @@ import { dayTitle } from '@shared/format'
 import type { Recap } from '@shared/recap'
 import { CaptureField } from '../components/CaptureField'
 import { MinusIcon, PinIcon } from '../components/Icons'
+import { ScheduleRow } from '../components/ScheduleRow'
 import { useNow } from '../hooks/useNow'
 import { AgentRow, RoutineRow, TodayRow } from './rows'
 import './float.css'
@@ -28,7 +29,7 @@ export function FloatView(): React.JSX.Element {
 
   const { view, recap, pinned, dayStartHour } = payload
   const { date, weekday } = dayTitle(view.day)
-  const nothingNow = view.attention.length + view.today.length + view.routines.length === 0
+  const nothingNow = view.attention.length + view.today.length + view.routines.length + view.schedule.length === 0
 
   return (
     <main className="float">
@@ -58,6 +59,16 @@ export function FloatView(): React.JSX.Element {
       )}
 
       <div className="scroll">
+        {view.schedule.length > 0 && (
+          <section className="sec" aria-labelledby="sec-schedule">
+            <h2 id="sec-schedule">今天的行程</h2>
+            <ul>
+              {view.schedule.map((o) => (
+                <ScheduleRow key={`${o.item.id}@${o.startAt}`} occurrence={o} now={at} />
+              ))}
+            </ul>
+          </section>
+        )}
         {view.attention.length > 0 && (
           <section className="sec" aria-labelledby="sec-agents">
             <div className="sec-head">
@@ -114,8 +125,8 @@ export function FloatView(): React.JSX.Element {
 
       <footer className="cap">
         {view.inboxCount > 0 && (
-          <button className="inbox" title="打開主視窗的收件匣" onClick={() => window.api.openMain('inbox')}>
-            收件匣還有 {view.inboxCount} 件
+          <button className="inbox" title="打開主視窗的隨手記" onClick={() => window.api.openMain('inbox')}>
+            隨手記還有 {view.inboxCount} 件
           </button>
         )}
         <CaptureField

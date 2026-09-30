@@ -8,7 +8,7 @@ import './capture.css'
 const CONFIRM_MS = 900
 
 const savedText = (item: Item): string => {
-  if (item.dueAt === null) return item.kind === 'idea' ? '已放進收件匣' : '已加到今天'
+  if (item.dueAt === null) return item.kind === 'idea' ? '已記到隨手記' : '已加到今天'
   return `已記下，${monthDay(item.dueAt)}${item.dueHasTime ? ` ${clock(item.dueAt)}` : ''} 到期`
 }
 

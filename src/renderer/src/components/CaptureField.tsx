@@ -15,7 +15,7 @@ interface Props {
   readonly onEscape?: () => void
 }
 
-const hintFor = (target: CaptureTarget): string => (target === 'today' ? 'Enter 加到今天' : 'Enter 放進收件匣')
+const hintFor = (target: CaptureTarget): string => (target === 'today' ? 'Enter 加到今天' : 'Enter 記到隨手記')
 
 /** One line in, one item out. Shows what date it read while you type. */
 export function CaptureField(props: Props): React.JSX.Element {

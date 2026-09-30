@@ -1,14 +1,15 @@
+import type { DayMarks, DayView } from './calendar'
 import type { IntegrationsPayload } from './integrations'
 import type { MainView } from './mainView'
 import type { NowView } from './now'
 import type { Recap } from './recap'
-import type { AgentSession, Item } from './types'
+import type { AgentSession, Item, RoutineSchedule } from './types'
 
 /** Where a captured line goes when it carries no date. */
 export type CaptureTarget = 'today' | 'inbox'
 
-export type MainTab = 'today' | 'inbox' | 'routines' | 'timeline' | 'calendar' | 'settings'
-export const MAIN_TABS: readonly MainTab[] = ['today', 'inbox', 'routines', 'timeline', 'calendar', 'settings']
+export type MainTab = 'today' | 'inbox' | 'agents' | 'routines' | 'calendar' | 'settings'
+export const MAIN_TABS: readonly MainTab[] = ['today', 'inbox', 'agents', 'routines', 'calendar', 'settings']
 
 /** "不排" moves a planned item back to the inbox (unless it has a deadline). */
 export type PlanTarget = 'today' | 'tomorrow' | 'none'
@@ -42,11 +43,17 @@ export interface MainPayload {
   readonly attention: readonly AgentSession[]
   /** Sessions still working, most recently active first. */
   readonly running: readonly AgentSession[]
+  /** Everything else from the last week (finished, failed, stopped, already seen), newest first. */
+  readonly recentAgents: readonly AgentSession[]
   readonly dayStartHour: number
   /** Days untouched before an undated item moves to "舊的". */
   readonly staleDays: number
   readonly focus: FocusState | null
 }
+
+/** How much the glass tints what is behind it: 淡 / 中 / 濃. */
+export type GlassLevel = 'light' | 'mid' | 'dense'
+export const GLASS_LEVELS: readonly GlassLevel[] = ['light', 'mid', 'dense']
 
 export interface AppInfo {
   readonly version: string
@@ -54,6 +61,7 @@ export interface AppInfo {
   readonly openAtLogin: boolean
   /** Only an installed copy can start with Windows; a development run cannot. */
   readonly canOpenAtLogin: boolean
+  readonly glass: GlassLevel
 }
 
 export interface RoutineRecord {
@@ -93,8 +101,8 @@ export interface Api {
   undoRemove(id: string): Promise<boolean>
   addStep(parentId: string, title: string): Promise<void>
   /** A null interval makes a tracker that only remembers when it last happened. */
-  createRoutine(title: string, intervalDays: number | null): Promise<void>
-  updateRoutine(id: string, title: string, intervalDays: number | null): Promise<void>
+  createRoutine(title: string, intervalDays: number | null, schedule?: RoutineSchedule | null): Promise<void>
+  updateRoutine(id: string, title: string, intervalDays: number | null, schedule?: RoutineSchedule | null): Promise<void>
   getRoutineHistory(id: string): Promise<RoutineHistory>
   /** Records a completion from typed text ("昨天", "前天晚上"). */
   recordRoutine(id: string, when: string): Promise<void>
@@ -103,6 +111,14 @@ export interface Api {
   extendFocus(): Promise<void>
   /** Returns the whole minutes that were logged (0 when under a minute). */
   stopFocus(): Promise<number>
+  /** Marks for every day from `from` to `to` (YYYY-MM-DD, inclusive, at most 60 days). */
+  getMonth(from: string, to: string): Promise<DayMarks[]>
+  getDay(day: string): Promise<DayView>
+  /** A line typed on a calendar day: planned for that day unless it names its own date. */
+  captureOn(text: string, day: string): Promise<void>
+  /** Fills in something that happened on a past day ("下午3點 開會"). */
+  addManualEntry(day: string, text: string): Promise<void>
+  removeManualEntry(entryId: number): Promise<void>
   acknowledgeAgents(ids: readonly string[]): Promise<void>
   dismissRecap(): Promise<void>
   getIntegrations(): Promise<IntegrationsPayload>
@@ -112,6 +128,7 @@ export interface Api {
   clearAgentData(agent: string): Promise<number>
   getAppInfo(): Promise<AppInfo>
   setOpenAtLogin(on: boolean): Promise<AppInfo>
+  setGlass(level: GlassLevel): Promise<AppInfo>
   openDataFolder(): void
   copyText(text: string): void
   setPinned(on: boolean): Promise<void>
@@ -146,6 +163,11 @@ export const CHANNELS = {
   startFocus: 'focus:start',
   extendFocus: 'focus:extend',
   stopFocus: 'focus:stop',
+  getMonth: 'calendar:month',
+  getDay: 'calendar:day',
+  captureOn: 'calendar:capture',
+  addManualEntry: 'calendar:add-entry',
+  removeManualEntry: 'calendar:remove-entry',
   acknowledgeAgents: 'agent:acknowledge',
   dismissRecap: 'recap:dismiss',
   getIntegrations: 'integrations:get',
@@ -153,6 +175,7 @@ export const CHANNELS = {
   clearAgentData: 'integrations:clear',
   getAppInfo: 'app:info',
   setOpenAtLogin: 'app:open-at-login',
+  setGlass: 'app:glass',
   openDataFolder: 'app:open-data',
   copyText: 'app:copy',
   setPinned: 'float:pin',

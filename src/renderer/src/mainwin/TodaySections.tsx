@@ -1,48 +1,9 @@
 import { useState } from 'react'
-import { agentName } from '@shared/agents'
-import { ago, clock } from '@shared/format'
+import { clock } from '@shared/format'
 import type { BatchTarget } from '@shared/ipc'
-import type { AgentSession, Item } from '@shared/types'
+import type { Item } from '@shared/types'
 import { CheckIcon, ChevronIcon } from '../components/Icons'
-import { project, ResumeButton } from '../float/rows'
 import { useAction, useToast } from './Toast'
-
-/** Agents still working: what each one was asked, where, for how long, and a way back in. */
-export function RunningAgents({ sessions, at }: { sessions: readonly AgentSession[]; at: number }): React.JSX.Element | null {
-  if (sessions.length === 0) return null
-  return (
-    <section className="sec" aria-labelledby="mw-running">
-      <h2 id="mw-running">
-        執行中<small>{sessions.length} 個</small>
-      </h2>
-      <ul>
-        {sessions.map((s) => {
-          const where = project(s.cwd)
-          const took = ago(s.startedAt, at)
-          return (
-            <li key={s.id} className="row agent agent-running">
-              <span className="dot" aria-hidden="true" />
-              <div className="main">
-                <div className="title">{agentName(s.agent)}</div>
-                <div className="sub">
-                  <em>執行中</em>
-                  {where && ` · ${where}`}
-                </div>
-                {s.title && <div className="sub detail">{s.title}</div>}
-              </div>
-              <div className="end">
-                <span title="從第一次回報算起">{took === '剛剛' ? '剛開始' : `跑了 ${took}`}</span>
-                <span className="agent-acts">
-                  <ResumeButton session={s} />
-                </span>
-              </div>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
-  )
-}
 
 function doneLabel(items: readonly Item[]): string {
   const dropped = items.filter((i) => i.droppedAt !== null).length
@@ -102,7 +63,7 @@ export function DoneToday({ items }: { items: readonly Item[] }): React.JSX.Elem
 const BATCH: readonly { target: BatchTarget; label: string; done: (n: number) => string }[] = [
   { target: 'today', label: '移到今天', done: (n) => `已把 ${n} 件移到今天` },
   { target: 'tomorrow', label: '移到明天', done: (n) => `已把 ${n} 件移到明天` },
-  { target: 'none', label: '先不排日期', done: (n) => `${n} 件放回收件匣了` },
+  { target: 'none', label: '先不排日期', done: (n) => `${n} 件放回隨手記了` },
   { target: 'drop', label: '不做了', done: (n) => `放下了 ${n} 件` },
 ]
 

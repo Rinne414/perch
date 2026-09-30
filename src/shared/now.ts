@@ -1,6 +1,7 @@
 import { ATTENTION_STATUSES } from './agents'
 import { dayKey, daysBetween } from './day'
 import { bucketOf, dueDayOf, isTopLevelWork, nextSteps, routineState, type ListSettings } from './lists'
+import { occurrencesOn, type Occurrence } from './schedule'
 import type { AgentSession, Item } from './types'
 
 export type NowSettings = ListSettings
@@ -26,6 +27,8 @@ export interface NowView {
   readonly running: readonly AgentSession[]
   readonly today: readonly TodayEntry[]
   readonly routines: readonly RoutineEntry[]
+  /** Fixed-time routines of today that have not ended yet. */
+  readonly schedule: readonly Occurrence[]
   readonly inboxCount: number
   readonly staleCount: number
 }
@@ -97,6 +100,7 @@ export function buildNow(
     running: sessions.filter((s) => isRunning(s, now)),
     today: todayEntries(items, day, settings),
     routines,
+    schedule: occurrencesOn(items, day).filter((o) => o.endAt > now),
     inboxCount,
     staleCount,
   }

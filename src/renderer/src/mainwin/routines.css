@@ -1,0 +1,191 @@
+/* 例行: routine rows, the fixed-time form and each routine's history. */
+
+/* Routine rows trade the meter for their actions while you point at them. */
+.mw .routine .acts {
+  display: none;
+}
+
+.mw .routine:hover .acts,
+.mw .routine:focus-within .acts {
+  display: flex;
+}
+
+.mw .routine:hover .meter,
+.mw .routine:focus-within .meter {
+  display: none;
+}
+
+/* Routine rows borrowed from the float keep their "days ago" above the meter. */
+.mw .routine > .end:not(:has(.acts)) {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+}
+
+.mw .when {
+  min-width: 52px;
+  text-align: right;
+}
+
+.mw .meter {
+  display: block;
+  width: 64px;
+}
+
+.mw .meter i.ok {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* Weekdays and per-day times of a fixed-time routine */
+.mw .wd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mw .wd button {
+  width: 34px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: none;
+  color: var(--dim);
+  font-size: 12.5px;
+  transition: background-color var(--fast), color var(--fast), border-color var(--fast);
+}
+
+.mw .wd button:hover {
+  color: var(--text);
+}
+
+.mw .wd button.on {
+  background: rgba(157, 184, 255, 0.22);
+  border-color: rgba(157, 184, 255, 0.6);
+  color: var(--text);
+}
+
+.mw .times {
+  display: grid;
+  gap: 6px;
+}
+
+.mw .day-l {
+  width: 32px;
+  color: var(--dim);
+}
+
+.mw .field.time {
+  width: 72px;
+  flex: none;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.mw .field.bad {
+  border-color: rgba(255, 138, 138, 0.6);
+}
+
+.mw .when.next {
+  min-width: 0;
+  color: var(--info);
+}
+
+.mw .routine.scheduled .main {
+  display: grid;
+  gap: 1px;
+}
+
+/* Routine history: each completion as a chip, the real rhythm, and back-filling. */
+.mw .history {
+  display: grid;
+  gap: 10px;
+}
+
+.mw .records {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mw .record {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border-radius: 999px;
+  background: var(--field);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mw .record.back {
+  background: none;
+  border: 1px dashed var(--line);
+  color: var(--dim);
+}
+
+.mw .record-x {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--faint);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity var(--fast), background-color var(--fast);
+}
+
+.mw .record:hover .record-x,
+.mw .record-x:focus-visible {
+  opacity: 1;
+}
+
+.mw .record-x:hover {
+  background: var(--press);
+  color: var(--text);
+}
+
+.mw .record-x svg {
+  width: 7px;
+  height: 7px;
+}
+
+.mw .rhythm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: normal;
+}
+
+.mw .history .chips {
+  align-items: center;
+}
+
+.mw .line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mw .hint {
+  font-size: 12px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.mw .hint b {
+  color: var(--info);
+  font-weight: 500;
+}
+
+.due-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.due-editor .hint {
+  white-space: normal;
+}

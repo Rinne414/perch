@@ -51,10 +51,17 @@ export const TodayIcon = (p: IconProps): React.JSX.Element => (
   </NavIcon>
 )
 
-export const InboxIcon = (p: IconProps): React.JSX.Element => (
+export const NoteIcon = (p: IconProps): React.JSX.Element => (
   <NavIcon {...p}>
-    <path d="M2 9.5 4 3.5h8l2 6V13H2z" />
-    <path d="M2 9.5h3.5l1 1.5h3l1-1.5H14" />
+    <path d="M3 13l1-3.5 7-7 2.5 2.5-7 7z" />
+    <path d="M9.5 4 12 6.5" />
+  </NavIcon>
+)
+
+export const AgentIcon = (p: IconProps): React.JSX.Element => (
+  <NavIcon {...p}>
+    <rect x="1.5" y="3" width="13" height="10" rx="2" />
+    <path d="M4.5 6.5 6.5 8.5 4.5 10.5M8.5 10.5h3" />
   </NavIcon>
 )
 
@@ -62,13 +69,6 @@ export const RoutineIcon = (p: IconProps): React.JSX.Element => (
   <NavIcon {...p}>
     <path d="M13 6.5A5 5 0 0 0 3.6 5M3 9.5A5 5 0 0 0 12.4 11" />
     <path d="M3.5 2.5V5H6M12.5 13.5V11H10" />
-  </NavIcon>
-)
-
-export const TimelineIcon = (p: IconProps): React.JSX.Element => (
-  <NavIcon {...p}>
-    <circle cx="8" cy="8" r="6" />
-    <path d="M8 4.8V8l2.2 1.4" />
   </NavIcon>
 )
 

@@ -2,9 +2,9 @@
 
 A local-first Windows desktop reminder for people who run AI coding agents.
 
-A small glass window perches on your desktop and shows only what needs you **now**: agents that finished or are waiting for your answer, today's work with its next step, and routines you have not done for a while. A main window keeps the rest — the inbox, what comes later, routines and their history.
+A small glass window perches on your desktop and shows only what needs you **now**: today's fixed schedule, agents that finished or are waiting for your answer, today's work with its next step, and routines you have not done for a while. A main window keeps the rest — what you jotted down, every agent session, routines and their history, and a calendar of what happened and what is coming.
 
-> Early version (0.1), Windows only. The interface is in Traditional Chinese.
+> Early version (0.2), Windows only. The interface is in Traditional Chinese.
 
 ![The float](docs/screenshots/float.png)
 
@@ -12,12 +12,17 @@ A small glass window perches on your desktop and shows only what needs you **now
 
 ## What it does
 
-- **Agents come back to you.** Hooks for Claude Code, Codex, Grok Build and OpenCode report when a session finishes, fails or waits for input. You get a notification, and the session stays in the float until you mark it seen. A **回去** button copies the command that reopens that session in its folder.
-- **Capture without friction.** `Ctrl+Alt+N` anywhere opens a one-line box. Dates are read from what you type, in Chinese or English: `明天下午3點 交報告`, `週五`, `10/2 17:00`.
+- **Agents come back to you.** Hooks for Claude Code, Codex, Grok Build and OpenCode report when a session finishes, fails or waits for input. You get a notification, and the session stays in the float until you mark it seen. The **Agent** tab keeps every session of the week — what it was asked, what came back — and a **回去** button copies the command that reopens it in its folder.
+- **Capture without friction.** `Ctrl+Alt+N` anywhere opens a one-line box. Dates are read from what you type, in Chinese or English: `明天下午3點 交報告`, `週五`, `10/2 17:00`. Lines without a date wait in **隨手記** until you give them a day.
+- **Fixed schedules.** Work shifts or classes at fixed weekly times ("週三 16:00–19:00, 週四 18:30–21:30"), each day with its own hours. They show on today's list with a countdown and remind you 30 minutes before (adjustable).
+- **A real calendar.** The month at a glance, like the Windows tray calendar. Pick a day to see what happened (a timeline and a summary), fill in what you forgot, or plan something for a day ahead.
 - **Start instead of finish.** Break a task into small steps; the float shows the next one. **先做 5 分鐘** starts a five-minute timer on it — no pop-up when it ends, no failure state.
 - **Honest but gentle.** Overdue work is shown as it is, with calm ways out: move it, take the date away, or **不做了** (let it go without deleting it).
 - **"When did I last…?"** Routines either have a goal ("every 3 days", the float reminds you) or only remember the last time (never nags). Each one keeps its history; you can record a time after the fact ("昨天", "前天晚上").
+- **Glass that stays readable.** A navy-tinted glass that works over bright windows as well as dark wallpapers; 設定 → 玻璃濃淡 picks how strong it is.
 - **Nothing leaves your computer.** No account, no server, no network port.
+
+![The calendar with a past day opened](docs/screenshots/calendar.png)
 
 ![Routines with their history](docs/screenshots/routines.png)
 
@@ -74,7 +79,7 @@ Development switches (ignored by an installed copy):
 | `TC_SCREENSHOT=<file.png>` | Grab the window from the screen once rendered, print its text, and quit |
 | `TC_SCREENSHOT_VIEW=float\|main\|capture`, `TC_SCREENSHOT_TAB=inbox` | Which window and tab to capture |
 | `TC_SCREENSHOT_JS=<script>` | Run a script in the page first (clicks, typing) |
-| `TC_SCREENSHOT_BACKDROP=1` | Put a neutral wallpaper behind the glass |
+| `TC_SCREENSHOT_BACKDROP=wallpaper\|light` | Put a known background (the mockups' wallpaper, or a plain light page) behind the glass |
 
 Why it works the way it does — what was borrowed from Todoist, TickTick, Sunsama, Amazing Marvin, Goblin Tools, Last Time, Super Productivity, Hindsight and Claude Code's Agent View, and what was left out on purpose — is in [`docs/reference-apps.md`](docs/reference-apps.md).
 
@@ -82,9 +87,11 @@ Why it works the way it does — what was borrowed from Todoist, TickTick, Sunsa
 
 Perch 是給同時跑好幾個 AI agent 的人用的桌面提醒工具，所有資料都只存在自己的電腦裡。
 
-- 浮窗只顯示「現在」要處理的事：跑完或在等你回覆的 agent、今天的事和下一步、太久沒做的例行事項。
-- 在任何地方按 `Ctrl+Alt+N` 就能記下一件事，日期可以直接用中文寫：「明天下午3點 交報告」。
-- 主視窗有收件匣、之後的事、例行事項和每次紀錄，還有設定頁可以一鍵把 hook 裝進 Claude Code、Codex、Grok Build、OpenCode。
+- 浮窗只顯示「現在」要處理的事：今天的固定行程、跑完或在等你回覆的 agent、今天的事和下一步、太久沒做的例行事項。
+- 在任何地方按 `Ctrl+Alt+N` 就能記下一件事，日期可以直接用中文寫：「明天下午3點 交報告」；沒寫日期的會先放進「隨手記」。
+- 固定行程（例如每週三 16:00–19:00、週四 18:30–21:30 上班）會出現在今天的行程，開始前 30 分鐘提醒。
+- 日曆像 Windows 右下角那樣一格一天：點過去的日子看那天做了什麼和總結，也能補記；點未來的日子看行程、截止，或直接加一件事。
+- Agent 分頁列出這週所有 session：問了什麼、回了什麼，一鍵複製回去的指令。
 - 不會催你、不算連續天數；做不到的事可以「不做了」，紀錄還會留著。
 
 安裝方式、連接 agent 的步驟和資料位置請看上面的英文說明。

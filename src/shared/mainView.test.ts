@@ -30,6 +30,7 @@ function item(over: Partial<Item>): Item {
     lastDoneAt: null,
     notifiedAt: null,
     source: 'user',
+    schedule: null,
     ...over,
   }
 }

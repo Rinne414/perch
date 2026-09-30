@@ -1,0 +1,165 @@
+/* 設定: agent hooks, clearing by source, and the general switches. */
+
+/* Settings */
+.mw .set {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mw .set-head {
+  display: grid;
+  gap: 2px;
+  padding: 0 2px;
+}
+
+.mw .set-head h2 {
+  font: 600 14px var(--font-display);
+}
+
+.mw .set-empty {
+  padding: 4px 2px;
+}
+
+.mw .card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mw .card .r {
+  display: grid;
+  grid-template-columns: 110px 104px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.mw .card .r:first-child {
+  border-top: 0;
+}
+
+.mw .card .r.src-r {
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+}
+
+.mw .card .name {
+  font-weight: 500;
+}
+
+.mw .path {
+  font: 11.5px/1.4 'Cascadia Mono', Consolas, monospace;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+
+.mw .state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.mw .state i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.mw .state.ok {
+  color: var(--done);
+}
+
+.mw .state.ok i {
+  background: var(--done);
+}
+
+.mw .state.warn {
+  color: var(--wait);
+}
+
+.mw .state.warn i {
+  background: var(--wait);
+}
+
+.mw .state.off {
+  color: var(--dim);
+}
+
+.mw .note {
+  grid-column: 1 / -1;
+  margin-top: -4px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.mw .note code {
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  color: var(--text);
+}
+
+.mw .confirm {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 138, 138, 0.08);
+  font-size: 12.5px;
+}
+
+.mw .confirm span {
+  flex: 1;
+}
+
+.mw .confirm.info {
+  background: rgba(255, 207, 107, 0.1);
+}
+
+.mw .card .r.general {
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+}
+
+/* On/off switch */
+.mw .switch {
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--press);
+  position: relative;
+  transition: background-color var(--fast);
+}
+
+.mw .switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: transform var(--fast), background-color var(--fast);
+}
+
+.mw .switch.on {
+  background: rgba(110, 231, 176, 0.35);
+}
+
+.mw .switch.on i {
+  transform: translateX(16px);
+  background: var(--done);
+}
+
+.mw .switch:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

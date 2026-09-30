@@ -1,0 +1,319 @@
+/* 日曆: the month like the Windows tray calendar, and the chosen day beside it. */
+.mw .cal-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 22px;
+  align-items: start;
+  min-height: 0;
+}
+
+.mw .cal {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mw .cal-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mw .cal-head h1 {
+  margin-right: auto;
+  font: 600 22px/1.2 var(--font-display);
+}
+
+.mw .cal-nav {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--dim);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.mw .cal-nav:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.mw .weekdays,
+.mw .month {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.mw .weekdays span {
+  padding: 0 6px;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.mw .day {
+  height: 72px;
+  min-width: 0;
+  padding: 5px 5px 4px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+  transition: background-color var(--fast), border-color var(--fast);
+}
+
+.mw .day:hover {
+  background: var(--hover);
+}
+
+.mw .day .d {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  padding-left: 2px;
+}
+
+.mw .day.other {
+  opacity: 0.38;
+}
+
+.mw .day.today .d {
+  width: 22px;
+  height: 22px;
+  margin: -2px 0 -1px -1px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--info);
+  color: #0e1530;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+}
+
+.mw .day.sel {
+  border-color: rgba(157, 184, 255, 0.7);
+  background: rgba(157, 184, 255, 0.1);
+}
+
+.mw .marks {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 3px;
+  min-width: 0;
+}
+
+.mw .mark {
+  max-width: 100%;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mw .mark.sched {
+  background: rgba(157, 184, 255, 0.18);
+  color: var(--info);
+}
+
+.mw .mark.due {
+  background: rgba(255, 207, 107, 0.16);
+  color: var(--wait);
+}
+
+.mw .mark.done {
+  background: rgba(110, 231, 176, 0.12);
+  color: var(--done);
+}
+
+.mw .mark.more {
+  color: var(--dim);
+}
+
+.mw .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.mw .legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 2px;
+}
+
+.mw .legend .sched {
+  background: rgba(157, 184, 255, 0.55);
+}
+
+.mw .legend .due {
+  background: rgba(255, 207, 107, 0.55);
+}
+
+.mw .legend .done {
+  background: rgba(110, 231, 176, 0.5);
+}
+
+/* The chosen day */
+.mw .day-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  min-height: 420px;
+}
+
+.mw .day-panel h2 {
+  font: 600 17px var(--font-display);
+}
+
+.mw .day-panel h2 small {
+  margin-left: 8px;
+  font: 400 12.5px var(--font-ui);
+  color: var(--dim);
+}
+
+.mw .summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mw .stat {
+  display: grid;
+  gap: 1px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: var(--field);
+}
+
+.mw .stat b {
+  font: 600 17px var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.mw .stat span {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.mw .day-block {
+  display: grid;
+  gap: 4px;
+}
+
+.mw .slot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: rgba(157, 184, 255, 0.1);
+  font-size: 12.5px;
+}
+
+.mw .slot .t {
+  color: var(--info);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.mw .slot .r {
+  color: var(--dim);
+  font-size: 11.5px;
+}
+
+.mw .tl {
+  display: grid;
+  gap: 0;
+}
+
+.mw .tl-entry {
+  display: grid;
+  grid-template-columns: 40px 12px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 4px 0;
+  font-size: 12.5px;
+}
+
+.mw .tl-entry time {
+  color: var(--dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mw .tl-entry .pin {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.mw .tl-entry.done .pin,
+.mw .tl-entry.routine .pin {
+  background: var(--done);
+}
+
+.mw .tl-entry.agent .pin {
+  background: var(--info);
+}
+
+.mw .tl-entry.agent-failed .pin {
+  background: var(--late);
+}
+
+.mw .tl-entry.focus .pin {
+  background: var(--wait);
+}
+
+.mw .tl-entry.manual .pin {
+  background: transparent;
+  border: 1.5px solid var(--text);
+}
+
+.mw .tl-entry .what {
+  overflow-wrap: anywhere;
+}
+
+.mw .tl-entry .what small {
+  display: block;
+  color: var(--dim);
+  font-size: 11.5px;
+}
+
+.mw .tl-entry .act {
+  opacity: 0;
+}
+
+.mw .tl-entry:hover .act,
+.mw .tl-entry .act:focus-visible {
+  opacity: 1;
+}
+
+.mw .day-input {
+  margin-top: auto;
+}
+
+@media (max-width: 900px) {
+  .mw .cal-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

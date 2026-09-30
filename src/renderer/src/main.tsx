@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { CaptureView } from './capture/CaptureView'
 import { FloatView } from './float/FloatView'
@@ -14,8 +14,23 @@ const VIEWS = {
 const requested = new URLSearchParams(location.search).get('view')
 const View = VIEWS[(requested as keyof typeof VIEWS) ?? 'float'] ?? FloatView
 
+/** Every window follows the glass level chosen in 設定; until it loads, the default (中) shows. */
+function Root(): React.JSX.Element {
+  useEffect(() => {
+    const apply = (): void => {
+      window.api
+        .getAppInfo()
+        .then((info) => (document.documentElement.dataset.glass = info.glass))
+        .catch(() => undefined) // Keep the default look; nothing else depends on it.
+    }
+    apply()
+    return window.api.onChanged(apply)
+  }, [])
+  return <View />
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <View />
+    <Root />
   </StrictMode>,
 )

@@ -3,6 +3,22 @@ export type ItemKind = 'task' | 'idea' | 'routine'
 /** 0 = urgent, 1 = this week, 2 = later (same meaning as the original float). */
 export type Priority = 0 | 1 | 2
 
+/** One weekly time slot of a fixed routine, in local time. weekday: 0 = Sunday. */
+export interface ScheduleSlot {
+  readonly weekday: number
+  /** "HH:MM" */
+  readonly start: string
+  /** "HH:MM"; earlier than the start means it ends the next day. */
+  readonly end: string
+}
+
+/** A routine that happens at fixed times each week (work shifts, classes). */
+export interface RoutineSchedule {
+  readonly slots: readonly ScheduleSlot[]
+  /** Minutes before a start to remind; null = never. */
+  readonly remindMinutes: number | null
+}
+
 export interface Item {
   readonly id: string
   readonly kind: ItemKind
@@ -31,6 +47,8 @@ export interface Item {
   readonly notifiedAt: number | null
   /** Who wrote the item: "user", "import:legacy", "agent:<name>", "mcp". */
   readonly source: string
+  /** Routines only: fixed weekly times. Such a routine has no interval and is never "due". */
+  readonly schedule: RoutineSchedule | null
 }
 
 export interface NewItem {
@@ -45,6 +63,7 @@ export interface NewItem {
   readonly intervalDays?: number | null
   readonly lastDoneAt?: number | null
   readonly source?: string
+  readonly schedule?: RoutineSchedule | null
 }
 
 export type ItemPatch = Partial<
@@ -57,6 +76,7 @@ export type ItemPatch = Partial<
     | 'dueHasTime'
     | 'plannedFor'
     | 'intervalDays'
+    | 'schedule'
     | 'sortOrder'
     | 'kind'
     | 'notifiedAt'

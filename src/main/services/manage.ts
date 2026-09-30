@@ -4,7 +4,7 @@ import { addDays, dayKey, dayStart, moveToDay } from '@shared/day'
 import type { BatchTarget, FocusState, MainPayload, PlanTarget } from '@shared/ipc'
 import { buildMainView } from '@shared/mainView'
 import { isRunning, needsAttention } from '@shared/now'
-import type { Item, ItemPatch } from '@shared/types'
+import type { Item, ItemPatch, RoutineSchedule } from '@shared/types'
 import { listAgentSessions } from '../db/agents'
 import {
   createItem,
@@ -23,6 +23,8 @@ import { transaction } from '../db/transaction'
 import type { AppSettings } from './settings'
 
 const AGENT_WINDOW_MS = 7 * 86_400_000
+/** Enough for a busy week without making the Agent tab a log file. */
+const RECENT_AGENTS = 60
 export const MAX_INTERVAL_DAYS = 3650
 
 export function getMainPayload(
@@ -42,7 +44,11 @@ export function getMainPayload(
   const sessions = listAgentSessions(db, now - AGENT_WINDOW_MS)
   const attention = sessions.filter(needsAttention).sort((a, b) => b.attentionAt! - a.attentionAt!)
   const running = sessions.filter((s) => isRunning(s, now))
-  return { view, attention, running, dayStartHour: settings.dayStartHour, staleDays: settings.staleDays, focus }
+  const recentAgents = sessions
+    .filter((s) => !needsAttention(s) && !isRunning(s, now))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, RECENT_AGENTS)
+  return { view, attention, running, recentAgents, dayStartHour: settings.dayStartHour, staleDays: settings.staleDays, focus }
 }
 
 function requireItem(db: DatabaseSync, id: string): Item {
@@ -88,9 +94,17 @@ function checkInterval(days: number | null): void {
   }
 }
 
-export function createRoutine(db: DatabaseSync, title: string, intervalDays: number | null, now: number): Item {
-  checkInterval(intervalDays)
-  return createItem(db, { kind: 'routine', title, intervalDays }, now)
+/** A schedule makes a fixed-time routine; it then has no interval. */
+export function createRoutine(
+  db: DatabaseSync,
+  title: string,
+  intervalDays: number | null,
+  now: number,
+  schedule: RoutineSchedule | null = null,
+): Item {
+  const days = schedule ? null : intervalDays
+  checkInterval(days)
+  return createItem(db, { kind: 'routine', title, intervalDays: days, schedule }, now)
 }
 
 export function updateRoutine(
@@ -99,10 +113,12 @@ export function updateRoutine(
   title: string,
   intervalDays: number | null,
   now: number,
+  schedule: RoutineSchedule | null = null,
 ): Item {
-  checkInterval(intervalDays)
+  const days = schedule ? null : intervalDays
+  checkInterval(days)
   if (requireItem(db, id).kind !== 'routine') throw new Error('Not a routine')
-  return updateItem(db, id, { title, intervalDays }, now)
+  return updateItem(db, id, { title, intervalDays: days, schedule }, now)
 }
 
 /**

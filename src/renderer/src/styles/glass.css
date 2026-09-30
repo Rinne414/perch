@@ -6,7 +6,17 @@
   --line: rgba(255, 255, 255, 0.12);
   --hover: rgba(255, 255, 255, 0.07);
   --press: rgba(255, 255, 255, 0.12);
-  --tint: rgba(20, 22, 32, 0.42);
+  /*
+   * What the window paints over the acrylic. Over a white window a plain translucent
+   * grey reads as "not responding", so the glass carries its own colour: a deep navy
+   * tint, two faint glows, and a light rim like the edge of a pane. 設定 → 玻璃濃淡
+   * picks how strong the tint is; 中 is the default.
+   */
+  --glass-alpha: 0.7;
+  --glass: radial-gradient(120% 80% at 0% 0%, rgba(88, 120, 255, 0.24), transparent 55%),
+    radial-gradient(90% 70% at 100% 100%, rgba(38, 190, 170, 0.18), transparent 60%),
+    rgba(13, 17, 32, var(--glass-alpha));
+  --edge: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
   --field: rgba(255, 255, 255, 0.08);
 
   --wait: #ffcf6b;
@@ -36,10 +46,20 @@ body,
 body {
   font: 13.5px/1.45 var(--font-ui);
   color: var(--text);
-  background: var(--tint);
+  background: var(--glass);
+  box-shadow: var(--edge);
   overflow: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;
+}
+
+/* 淡 lets more of the desktop through; 濃 stays readable over bright windows. */
+:root[data-glass='light'] {
+  --glass-alpha: 0.58;
+}
+
+:root[data-glass='dense'] {
+  --glass-alpha: 0.82;
 }
 
 button {

@@ -8,10 +8,13 @@ export interface TrayActions {
   quit: () => void
 }
 
-const TRAY_SIZE = 32
+/** macOS menu bar icons are 18 points tall; Linux panels usually draw 22-24 px. */
+const TRAY_SIZE: Partial<Record<NodeJS.Platform, number>> = { darwin: 18, linux: 24 }
+const DEFAULT_TRAY_SIZE = 32
 
 export function createTray(actions: TrayActions): Tray {
-  const tray = new Tray(nativeImage.createFromPath(iconPath()).resize({ width: TRAY_SIZE, height: TRAY_SIZE }))
+  const size = TRAY_SIZE[process.platform] ?? DEFAULT_TRAY_SIZE
+  const tray = new Tray(nativeImage.createFromPath(iconPath()).resize({ width: size, height: size }))
   tray.setToolTip('Perch')
   tray.setContextMenu(
     Menu.buildFromTemplate([

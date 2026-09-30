@@ -4,10 +4,15 @@ import { join } from 'node:path'
 import { hookPayloadToEvent, isHookAgent } from '../integrations/adapters'
 import { parseJsonText, writeInboxEvent } from '../integrations/inbox'
 import { agentPresent, install, INSTALLABLE, isInstallable, isInstalled, uninstall } from '../integrations/install'
+import { saveQuota } from '../integrations/quota'
+import { readWrapped } from '../integrations/statusline'
+import { runWrapped } from '../integrations/statuslineRun'
+import { quotaFromStatusline, statuslineText } from '../shared/quota'
 
 /*
  * Usage:
  *   node perch-hook.js hook <agent> --inbox <dir>     (called by an agent's hook, payload on stdin)
+ *   node perch-hook.js statusline claude-code --inbox <dir> [--wrap <file>]   (Claude Code's status line, session data on stdin)
  *   node perch-hook.js install <agent> --inbox <dir>
  *   node perch-hook.js uninstall <agent>
  *   node perch-hook.js status
@@ -54,12 +59,39 @@ async function runHook(agent: string, inbox: string): Promise<void> {
     const event = hookPayloadToEvent(agent, parseJsonText(raw), Date.now())
     if (event) writeInboxEvent(inbox, event)
   } catch (err) {
-    try {
-      mkdirSync(inbox, { recursive: true })
-      appendFileSync(join(inbox, 'hook-errors.log'), `${new Date().toISOString()} ${agent}: ${(err as Error).message}\n`)
-    } catch {
-      // Nothing left to report to; stay silent for the agent's sake.
-    }
+    logHookError(inbox, agent, err)
+  }
+}
+
+/**
+ * Saves the plan's usage limits for the app. On its own it prints them as the status line
+ * ("5h 23% · 7d 41%"); wrapping the person's own status line (--wrap) it prints exactly what theirs prints.
+ */
+async function runStatusline(agent: string, inbox: string, wrap: string | undefined): Promise<void> {
+  let raw = ''
+  let line = ''
+  try {
+    if (agent !== 'claude-code') throw new Error(`no status line for "${agent}"`)
+    raw = await readStdin()
+    const snapshot = quotaFromStatusline(parseJsonText(raw), Date.now())
+    if (snapshot) saveQuota(inbox, snapshot)
+    line = statuslineText(snapshot)
+  } catch (err) {
+    logHookError(inbox, `${agent} statusline`, err)
+  }
+  if (wrap) {
+    const theirs = readWrapped(wrap)?.['command']
+    line = typeof theirs === 'string' ? await runWrapped(theirs, raw) : ''
+  }
+  process.stdout.write(line)
+}
+
+function logHookError(inbox: string, agent: string, err: unknown): void {
+  try {
+    mkdirSync(inbox, { recursive: true })
+    appendFileSync(join(inbox, 'hook-errors.log'), `${new Date().toISOString()} ${agent}: ${(err as Error).message}\n`)
+  } catch {
+    // Nothing left to report to; stay silent for the agent's sake.
   }
 }
 
@@ -96,10 +128,14 @@ async function main(): Promise<void> {
     await runHook(agent ?? '', option(rest, '--inbox') ?? join(homedir(), '.perch', 'inbox'))
     process.exit(0)
   }
+  if (command === 'statusline') {
+    await runStatusline(agent ?? '', option(rest, '--inbox') ?? join(homedir(), '.perch', 'inbox'), option(rest, '--wrap'))
+    process.exit(0)
+  }
   if (command === 'install' || command === 'uninstall' || command === 'status') {
     process.exit(manage(command, agent, rest))
   }
-  process.stderr.write('Usage: perch-hook <hook|install|uninstall|status> [agent] [--inbox <dir>]\n')
+  process.stderr.write('Usage: perch-hook <hook|statusline|install|uninstall|status> [agent] [--inbox <dir>]\n')
   process.exit(1)
 }
 

@@ -95,3 +95,13 @@ describe('input hygiene', () => {
     expect(firstLine('x'.repeat(200))).toHaveLength(160)
   })
 })
+
+describe('prompt titles from hooks', () => {
+  test('skip pasted blocks and background notices', () => {
+    const base = { session_id: 's1', cwd: 'L:\code\app', hook_event_name: 'UserPromptSubmit' }
+    const pasted = hookPayloadToEvent('claude-code', { ...base, prompt: '<pasted_content id="a1">\n長文\n</pasted_content>\n幫我看這段' }, NOW)
+    const notice = hookPayloadToEvent('claude-code', { ...base, prompt: '<task-notification>\n<summary>done</summary>\n</task-notification>' }, NOW)
+    expect(pasted?.title).toBe('幫我看這段')
+    expect(notice?.title).toBe('（背景工作通知）')
+  })
+})

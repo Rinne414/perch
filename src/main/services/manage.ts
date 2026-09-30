@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { parseCapture } from '@shared/capture'
+import { liveWindows, type QuotaSnapshot } from '@shared/quota'
 import { addDays, dayKey, dayStart, moveToDay } from '@shared/day'
 import type { BatchTarget, FocusState, MainPayload, PlanTarget } from '@shared/ipc'
 import { buildMainView } from '@shared/mainView'
@@ -32,6 +33,7 @@ export function getMainPayload(
   now: number,
   settings: AppSettings,
   focus: FocusState | null = null,
+  quota: QuotaSnapshot | null = null,
 ): MainPayload {
   const today = dayKey(now, settings.dayStartHour)
   const view = buildMainView(
@@ -48,7 +50,17 @@ export function getMainPayload(
     .filter((s) => !needsAttention(s) && !isRunning(s, now))
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, RECENT_AGENTS)
-  return { view, attention, running, recentAgents, dayStartHour: settings.dayStartHour, staleDays: settings.staleDays, focus }
+  const live = liveWindows(quota, now)
+  return {
+    view,
+    attention,
+    running,
+    recentAgents,
+    dayStartHour: settings.dayStartHour,
+    staleDays: settings.staleDays,
+    focus,
+    quota: quota && live.length ? { ...quota, windows: live } : null,
+  }
 }
 
 function requireItem(db: DatabaseSync, id: string): Item {

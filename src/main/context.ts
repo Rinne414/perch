@@ -21,6 +21,8 @@ export interface AppContext {
   readonly updater: Updater
   /** Registers the new capture shortcut and drops the old one; false when another program holds it. */
   moveCaptureShortcut(accelerator: string): boolean
+  /** Rewrites that day's Obsidian note when a folder is set. */
+  syncObsidian(day: string): void
 }
 
 export function broadcastChange(): void {

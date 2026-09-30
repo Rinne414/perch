@@ -31,7 +31,7 @@ interface HookGroup {
   hooks: Handler[]
 }
 type HooksMap = Record<string, HookGroup[]>
-type Config = Record<string, unknown>
+export type Config = Record<string, unknown>
 
 const commandLine = (s: HookSetup, agent: string): string =>
   `node "${s.cliPath}" hook ${agent} --inbox "${s.inboxDir}"`
@@ -258,7 +258,7 @@ export function installState(agent: InstallableAgent, s: HookSetup): HookState {
   return paths.every((path) => text.includes(escapedInJson(path))) ? 'installed' : 'outdated'
 }
 
-function readJson(file: string): Config {
+export function readJson(file: string): Config {
   if (!existsSync(file)) return {}
   const text = readFileSync(file, 'utf8').replace(/^﻿/, '')
   if (!text.trim()) return {}
@@ -270,7 +270,7 @@ function readJson(file: string): Config {
 }
 
 /** Writes via a temp file after keeping one backup of the previous version. */
-function writeSafely(file: string, content: string): void {
+export function writeSafely(file: string, content: string): void {
   mkdirSync(dirname(file), { recursive: true })
   if (existsSync(file)) copyFileSync(file, `${file}.perch.bak`)
   const tmp = `${file}.perch.tmp`

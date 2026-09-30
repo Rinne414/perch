@@ -24,8 +24,11 @@
   --late: #ff8a8a;
   --info: #9db8ff;
 
-  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft JhengHei UI', 'PingFang TC', sans-serif;
-  --font-display: 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft JhengHei UI', sans-serif;
+  /* Windows first, then macOS (system font, PingFang TC), then Linux (Noto CJK). */
+  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft JhengHei UI', -apple-system, BlinkMacSystemFont, 'PingFang TC',
+    'Noto Sans CJK TC', 'Noto Sans TC', sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft JhengHei UI', -apple-system, BlinkMacSystemFont,
+    'PingFang TC', 'Noto Sans CJK TC', 'Noto Sans TC', sans-serif;
 
   --radius-row: 8px;
   --fast: 140ms;

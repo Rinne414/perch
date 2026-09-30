@@ -1,4 +1,5 @@
 import type { AgentEvent } from '../shared/agentEvent'
+import { promptTitle } from '../shared/prompt'
 import type { AgentStatus } from '../shared/types'
 
 /** Agents that report through command hooks. OpenCode reports through its own plugin instead. */
@@ -22,6 +23,9 @@ export function firstLine(v: unknown): string | undefined {
   return line.length > MAX_LINE ? `${line.slice(0, MAX_LINE - 1)}…` : line
 }
 
+/** A prompt's title, skipping blocks like pasted text; undefined when there is no prompt. */
+const promptOf = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? promptTitle(v) : undefined)
+
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined)
 
 interface Mapped {
@@ -37,7 +41,7 @@ function claudeCode(p: Payload): Mapped | null {
   if (p['agent_id'] !== undefined) return null
   switch (p['hook_event_name']) {
     case 'UserPromptSubmit':
-      return { status: 'running', title: firstLine(p['prompt']) }
+      return { status: 'running', title: promptOf(p['prompt']) }
     case 'PostToolUse':
       return { status: 'running' }
     case 'Stop':
@@ -59,7 +63,7 @@ function claudeCode(p: Payload): Mapped | null {
 function codex(p: Payload): Mapped | null {
   switch (p['hook_event_name']) {
     case 'UserPromptSubmit':
-      return { status: 'running', title: firstLine(p['prompt']) }
+      return { status: 'running', title: promptOf(p['prompt']) }
     case 'PostToolUse':
       return { status: 'running' }
     case 'Stop':
@@ -80,7 +84,7 @@ function codex(p: Payload): Mapped | null {
 function geminiCli(p: Payload): Mapped | null {
   switch (p['hook_event_name']) {
     case 'BeforeAgent':
-      return { status: 'running', title: firstLine(p['prompt']) }
+      return { status: 'running', title: promptOf(p['prompt']) }
     case 'AfterTool':
       return { status: 'running' }
     case 'AfterAgent':
@@ -100,7 +104,7 @@ function grokBuild(p: Payload): Mapped | null {
   if (p['subagentType'] !== undefined) return null
   switch (p['hook_event_name']) {
     case 'UserPromptSubmit':
-      return { status: 'running', title: firstLine(p['prompt']) }
+      return { status: 'running', title: promptOf(p['prompt']) }
     case 'PostToolUse':
       return { status: 'running' }
     case 'Stop':

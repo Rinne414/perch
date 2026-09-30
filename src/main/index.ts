@@ -14,6 +14,7 @@ import { notify } from './notify'
 import { backupsDir, dataDir, hookSetup, logsDir, separateDevProfile } from './paths'
 import { startScheduler } from './scheduler'
 import { startDailyBackups, writeBackup } from './services/backup'
+import { createObsidianSync } from './services/obsidian'
 import { createTray } from './tray'
 import { createCaptureWindow, toggleCapture } from './windows/capture'
 import { createFloatWindow, readFloatState, saveFloatPinned } from './windows/float'
@@ -127,6 +128,7 @@ function start(): void {
     log,
     updater: createUpdater(log, dataDir()),
     moveCaptureShortcut,
+    syncObsidian: createObsidianSync(database, settings, log),
   }
   registerIpc(ctx)
   tray = createTray({ showFloat, openMain: () => openMain(), openCapture, quit: () => app.quit() })

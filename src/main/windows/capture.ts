@@ -1,5 +1,6 @@
 import { BrowserWindow, screen } from 'electron'
 import { loadView, preloadPath } from './load'
+import { glassWindowOptions } from './glass'
 
 const WIDTH = 560
 const HEIGHT = 132
@@ -15,8 +16,7 @@ export function createCaptureWindow(): BrowserWindow {
     resizable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    backgroundMaterial: 'acrylic',
-    backgroundColor: '#00000000',
+    ...glassWindowOptions(),
     webPreferences: { preload: preloadPath(), contextIsolation: true, sandbox: true },
   })
   win.setMenuBarVisibility(false)

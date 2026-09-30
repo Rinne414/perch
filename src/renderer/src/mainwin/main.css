@@ -142,12 +142,14 @@
 }
 
 .mw-pane::-webkit-scrollbar,
-.mw .item-panel::-webkit-scrollbar {
+.mw .item-panel::-webkit-scrollbar,
+.mw .day-panel::-webkit-scrollbar {
   width: 6px;
 }
 
 .mw-pane::-webkit-scrollbar-thumb,
-.mw .item-panel::-webkit-scrollbar-thumb {
+.mw .item-panel::-webkit-scrollbar-thumb,
+.mw .day-panel::-webkit-scrollbar-thumb {
   background: var(--line);
   border-radius: 3px;
 }

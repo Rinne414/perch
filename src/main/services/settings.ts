@@ -10,6 +10,8 @@ export interface AppSettings {
   readonly morningHour: number
   readonly captureShortcut: string
   readonly glass: GlassLevel
+  /** An Obsidian vault (or a folder in one) that gets a note per day in its Perch/ folder; null when off. */
+  readonly obsidianDir: string | null
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -18,6 +20,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   morningHour: 9,
   captureShortcut: 'Control+Alt+N',
   glass: 'mid',
+  obsidianDir: null,
 }
 
 const KEY = 'app'

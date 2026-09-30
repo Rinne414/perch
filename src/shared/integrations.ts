@@ -23,7 +23,20 @@ export interface SourceUsage {
   readonly items: number
 }
 
+/**
+ * Claude Code's status line, which reports its usage limits.
+ * taken: the person has their own status line and ours is not in yet; installing wraps theirs.
+ */
+export type StatuslineState = 'installed' | 'outdated' | 'not-installed' | 'taken' | 'no-agent'
+
+export interface StatuslineInfo {
+  readonly state: StatuslineState
+  /** The person's own status line command: the one found (taken) or the one ours wraps (installed). */
+  readonly other: string | null
+}
+
 export interface IntegrationsPayload {
   readonly agents: readonly AgentIntegration[]
   readonly sources: readonly SourceUsage[]
+  readonly statusline: StatuslineInfo
 }

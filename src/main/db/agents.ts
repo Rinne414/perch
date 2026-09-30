@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { agentName, ATTENTION_STATUSES } from '@shared/agents'
 import type { AgentEvent } from '@shared/agentEvent'
+import { promptTitle } from '@shared/prompt'
 import type { AgentSession, AgentStatus } from '@shared/types'
 import { appendEvent } from './events'
 import { transaction } from './transaction'
@@ -24,7 +25,8 @@ const toSession = (r: SessionRow): AgentSession => ({
   agent: r.agent,
   sessionId: r.session_id,
   cwd: r.cwd,
-  title: r.title,
+  // Titles stored before prompts were cleaned can be a lone tag line such as <pasted_content>.
+  title: r.title === null ? null : promptTitle(r.title),
   status: r.status as AgentStatus,
   detail: r.detail,
   startedAt: r.started_at,

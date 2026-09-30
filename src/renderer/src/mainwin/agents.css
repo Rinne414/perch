@@ -53,3 +53,48 @@
 .mw .src {
   color: var(--info);
 }
+
+/* Claude Code's usage limits */
+.mw .quota {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mw .quota-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.mw .quota-head h2 {
+  font: 600 14px var(--font-display);
+}
+
+.mw .quota-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 40px 170px;
+  gap: 12px;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.mw .qbar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.mw .qbar i {
+  display: block;
+  height: 100%;
+  background: var(--info);
+}
+
+.mw .qbar i.hot {
+  background: var(--wait);
+}

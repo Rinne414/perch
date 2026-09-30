@@ -78,7 +78,7 @@ function backupLabel(at: number): string {
   return `${dayLabel(dayKey(at, 0), dayKey(now, 0))} ${clock(at)}`
 }
 
-export function DataSection({ info }: { info: AppInfo | null }): React.JSX.Element {
+export function DataSection({ info, onInfo }: { info: AppInfo | null; onInfo: (next: AppInfo) => void }): React.JSX.Element {
   const [exporting, setExporting] = useState(false)
   const show = useToast()
 
@@ -132,8 +132,66 @@ export function DataSection({ info }: { info: AppInfo | null }): React.JSX.Eleme
             {exporting ? '匯出中…' : '匯出…'}
           </button>
         </div>
+        <ObsidianRow info={info} onInfo={onInfo} />
       </div>
     </section>
+  )
+}
+
+/** 設定 → 資料 → Obsidian: a note per day in the vault's Perch/ folder. */
+function ObsidianRow({ info, onInfo }: { info: AppInfo | null; onInfo: (next: AppInfo) => void }): React.JSX.Element {
+  const [busy, setBusy] = useState(false)
+  const show = useToast()
+  const dir = info?.obsidianDir ?? null
+
+  const pick = (): void => {
+    setBusy(true)
+    window.api
+      .pickObsidianFolder()
+      .then((result) => {
+        if (!result) return
+        onInfo(result.info)
+        show(result.written ? `已寫進 ${result.written} 天的筆記` : '已設定好，之後每天都會寫一份')
+      })
+      .catch(() => show('那個資料夾不能寫入，換一個試試'))
+      .finally(() => setBusy(false))
+  }
+
+  const turnOff = (): void => {
+    window.api
+      .clearObsidianFolder()
+      .then((next) => {
+        onInfo(next)
+        show('不再寫進 Obsidian；已經寫好的檔案都還在')
+      })
+      .catch(() => show('沒有改成功，再試一次看看'))
+  }
+
+  return (
+    <div className="r general">
+      <span className="name">Obsidian</span>
+      {dir ? (
+        <span className="sub obsidian-sub">
+          <span className="path" title={dir}>
+            {dir}
+          </span>
+          每天寫一份 <b>Perch/{dayKey(Date.now(), 0)}.md</b>：筆記、做完的事、那天的經過。只會寫 Perch 資料夾，在 Obsidian
+          改的不會同步回來；vault 有同步到雲端的話，這些內容也會跟著同步。
+        </span>
+      ) : (
+        <span className="sub">把每天的筆記和經過寫進 Obsidian 的資料夾，一天一份（在本機寫檔，不用連網）</span>
+      )}
+      <div className="set-acts">
+        {dir && (
+          <button className="btn ghost" onClick={turnOff}>
+            關閉
+          </button>
+        )}
+        <button className="btn" disabled={busy} onClick={pick}>
+          {dir ? '換資料夾…' : '選 Obsidian 資料夾…'}
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -177,6 +235,16 @@ function updateView(status: UpdateStatus): UpdateView {
         button: '重開更新',
         primary: true,
       }
+    case 'manual':
+      return {
+        text: (
+          <>
+            <span className="info-text">有新版 {status.version}。</span>這個系統要自己下載安裝，裝好後資料都還在。
+          </>
+        ),
+        button: '打開下載頁',
+        primary: true,
+      }
     case 'error':
       return { text: <span className="late-text">{status.message}</span>, button: '再試一次' }
     default:
@@ -196,7 +264,7 @@ export function UpdateSection({ info }: { info: AppInfo | null }): React.JSX.Ele
   }, [])
 
   const act = (): void => {
-    if (status.state === 'ready') return window.api.installUpdate()
+    if (status.state === 'ready' || status.state === 'manual') return window.api.installUpdate()
     window.api
       .checkForUpdate()
       .then(setStatus)

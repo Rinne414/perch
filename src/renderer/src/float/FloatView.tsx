@@ -1,5 +1,6 @@
 import { agentName } from '@shared/agents'
 import { dayTitle } from '@shared/format'
+import { resetLabel } from '@shared/quota'
 import type { Recap } from '@shared/recap'
 import { CaptureField } from '../components/CaptureField'
 import { MinusIcon, PinIcon } from '../components/Icons'
@@ -55,6 +56,13 @@ export function FloatView(): React.JSX.Element {
         <p className="recap">
           <span>{recapText(recap)}</span>
           <button onClick={() => void window.api.dismissRecap()}>收起</button>
+        </p>
+      )}
+
+      {payload.quotaAlert && (
+        <p className="quota-line" role="status">
+          Claude 5 小時已用 {Math.round(payload.quotaAlert.usedPercent)}%
+          <span>{resetLabel(payload.quotaAlert.resetsAt, at)}</span>
         </p>
       )}
 

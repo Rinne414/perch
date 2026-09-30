@@ -1,8 +1,10 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, statSync } from 'node:fs'
 import { release } from 'node:os'
 import { basename } from 'node:path'
 import { parsePast } from '@shared/capture'
+import { dayKey } from '@shared/day'
+import type { QuotaSnapshot } from '@shared/quota'
 import { parseSchedule } from '@shared/schedule'
 import { isCaptureAccelerator } from '@shared/shortcut'
 import {
@@ -25,11 +27,16 @@ import { acknowledgeAgent } from './db/agents'
 import { completeItem, dropItem, reopenItem } from './db/items'
 import { clearAgentData } from './db/sources'
 import { transaction } from './db/transaction'
+import { canOpenAtLogin, isOpenAtLogin, setOpenAtLogin } from './loginItem'
+import { readQuota } from '../integrations/quota'
 import { backupsDir, dataDir } from './paths'
 import { listBackups } from './services/backup'
 import { writeExport } from './services/export'
+import { backfillObsidian } from './services/obsidian'
+import { setDayNote } from './db/dayNotes'
+import { getEvent } from './db/events'
 import { issueUrl } from './services/report'
-import { integrationsPayload, setHook } from './services/integrations'
+import { integrationsPayload, setHook, setStatusline } from './services/integrations'
 import {
   addStep,
   createBatchUndo,
@@ -50,6 +57,7 @@ import { updateSettings } from './services/settings'
 
 const MAX_ID = 128
 const MAX_TEXT = 2000
+const MAX_NOTE = 20_000
 const MAX_BATCH = 500
 const TARGETS: ReadonlySet<string> = new Set<CaptureTarget>(['today', 'inbox'])
 const PLANS: ReadonlySet<string> = new Set<PlanTarget>(['today', 'tomorrow', 'none'])
@@ -170,8 +178,21 @@ function registerItemHandlers(ctx: AppContext, focus: Focus): void {
   })
   ipcMain.handle(CHANNELS.getDay, (_e, d: unknown) => dayView(db, day(d), Date.now(), ctx.settings()))
   handle(CHANNELS.captureOn, (t: unknown, d: unknown) => void captureOn(db, text(t), day(d), Date.now(), ctx.settings()))
-  handle(CHANNELS.addManualEntry, (d: unknown, t: unknown) => void addManualEntry(db, day(d), text(t), Date.now(), ctx.settings()))
-  handle(CHANNELS.removeManualEntry, (r: unknown) => removeManualEntry(db, recordId(r)))
+  handle(CHANNELS.addManualEntry, (d: unknown, t: unknown) => {
+    addManualEntry(db, day(d), text(t), Date.now(), ctx.settings())
+    ctx.syncObsidian(day(d))
+  })
+  handle(CHANNELS.removeManualEntry, (r: unknown) => {
+    const entry = getEvent(db, recordId(r))
+    removeManualEntry(db, recordId(r))
+    if (entry) ctx.syncObsidian(dayKey(entry.at, ctx.settings().dayStartHour))
+  })
+  // Saved as the person types, so it does not tell the windows to reload (that would disturb the typing).
+  ipcMain.handle(CHANNELS.setDayNote, (_e, d: unknown, t: unknown) => {
+    if (typeof t !== 'string' || t.length > MAX_NOTE) throw new Error('Note must be text of at most 20000 characters')
+    setDayNote(db, day(d), t, Date.now())
+    ctx.syncObsidian(day(d))
+  })
   handle(CHANNELS.acknowledgeAgents, (list: unknown) => {
     const now = Date.now()
     transaction(db, () => ids(list).forEach((i) => acknowledgeAgent(db, i, now)))
@@ -186,25 +207,32 @@ function registerIntegrationHandlers(ctx: AppContext): void {
     setHook(agent(a), on === true, hookSetup)
     return integrationsPayload(db, hookSetup)
   })
+  ipcMain.handle(CHANNELS.setStatusline, (_e, on: unknown) => {
+    setStatusline(on === true, hookSetup)
+    return integrationsPayload(db, hookSetup)
+  })
   ipcMain.handle(
     CHANNELS.clearAgentData,
     mutating(ctx, (a: unknown) => clearAgentData(db, agent(a))),
   )
 }
 
+const appInfoOf = (ctx: AppContext): AppInfo => ({
+  version: app.getVersion(),
+  dataDir: dataDir(),
+  openAtLogin: isOpenAtLogin(),
+  canOpenAtLogin: canOpenAtLogin(),
+  glass: ctx.settings().glass,
+  captureShortcut: ctx.settings().captureShortcut,
+  lastBackupAt: listBackups(backupsDir())[0]?.at ?? null,
+  obsidianDir: ctx.settings().obsidianDir,
+})
+
 function registerAppHandlers(ctx: AppContext): void {
-  const appInfo = (): AppInfo => ({
-    version: app.getVersion(),
-    dataDir: dataDir(),
-    openAtLogin: app.isPackaged && app.getLoginItemSettings().openAtLogin,
-    canOpenAtLogin: app.isPackaged,
-    glass: ctx.settings().glass,
-    captureShortcut: ctx.settings().captureShortcut,
-    lastBackupAt: listBackups(backupsDir())[0]?.at ?? null,
-  })
+  const appInfo = (): AppInfo => appInfoOf(ctx)
   ipcMain.handle(CHANNELS.getAppInfo, appInfo)
   ipcMain.handle(CHANNELS.setOpenAtLogin, (_e, on: unknown) => {
-    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: on === true })
+    setOpenAtLogin(on === true)
     return appInfo()
   })
   ipcMain.handle(
@@ -223,20 +251,30 @@ function registerAppHandlers(ctx: AppContext): void {
   ipcMain.on(CHANNELS.copyText, (_e, t: unknown) => clipboard.writeText(text(t)))
 }
 
-/** The folder picker, or TC_EXPORT_DIR in a development run so tests need no dialog. */
-async function exportFolder(win: BrowserWindow | null): Promise<{ folder: string; reveal: boolean } | null> {
-  const devDir = app.isPackaged ? undefined : process.env['TC_EXPORT_DIR']
-  if (devDir) return { folder: devDir, reveal: false }
+interface FolderPick {
+  readonly title: string
+  readonly buttonLabel: string
+  /** Development runs take the folder from this variable, so tests need no dialog. */
+  readonly devEnv: string
+}
+
+/** A folder picker; `picked` is false when a development run took the folder from its variable. */
+async function pickFolder(win: BrowserWindow | null, pick: FolderPick): Promise<{ folder: string; picked: boolean } | null> {
+  const devDir = app.isPackaged ? undefined : process.env[pick.devEnv]
+  if (devDir) return { folder: devDir, picked: false }
   const options: Electron.OpenDialogOptions = {
-    title: '匯出到哪個資料夾？',
+    title: pick.title,
     defaultPath: app.getPath('documents'),
-    buttonLabel: '匯出到這裡',
+    buttonLabel: pick.buttonLabel,
     properties: ['openDirectory', 'createDirectory'],
   }
-  const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
-  const folder = picked.canceled ? undefined : picked.filePaths[0]
-  return folder ? { folder, reveal: true } : null
+  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+  const folder = result.canceled ? undefined : result.filePaths[0]
+  return folder ? { folder, picked: true } : null
 }
+
+const EXPORT_PICK: FolderPick = { title: '匯出到哪個資料夾？', buttonLabel: '匯出到這裡', devEnv: 'TC_EXPORT_DIR' }
+const OBSIDIAN_PICK: FolderPick = { title: '選 Obsidian 的 vault（或其中一個資料夾）', buttonLabel: '寫到這裡', devEnv: 'TC_OBSIDIAN_DIR' }
 
 /** Backups, logs, export, problem reports and updates. */
 function registerUpkeepHandlers(ctx: AppContext): void {
@@ -252,12 +290,25 @@ function registerUpkeepHandlers(ctx: AppContext): void {
     void shell.openPath(dir)
   })
   ipcMain.handle(CHANNELS.exportData, async (e): Promise<ExportResult | null> => {
-    const target = await exportFolder(BrowserWindow.fromWebContents(e.sender))
+    const target = await pickFolder(BrowserWindow.fromWebContents(e.sender), EXPORT_PICK)
     if (!target) return null
     const { json, markdown } = writeExport(ctx.db, target.folder, app.getVersion(), ctx.settings(), Date.now())
     ctx.log.info('Exported all data')
-    if (target.reveal) shell.showItemInFolder(markdown)
+    if (target.picked) shell.showItemInFolder(markdown)
     return { folder: target.folder, files: [basename(json), basename(markdown)] }
+  })
+  ipcMain.handle(CHANNELS.pickObsidianFolder, async (e) => {
+    const target = await pickFolder(BrowserWindow.fromWebContents(e.sender), OBSIDIAN_PICK)
+    if (!target) return null
+    if (!statSync(target.folder, { throwIfNoEntry: false })?.isDirectory()) throw new Error('Not a folder')
+    updateSettings(ctx.db, { obsidianDir: target.folder })
+    const written = backfillObsidian(ctx.db, target.folder, Date.now(), ctx.settings().dayStartHour)
+    ctx.log.info(`Obsidian notes on: ${written} days written`)
+    return { info: appInfoOf(ctx), written }
+  })
+  ipcMain.handle(CHANNELS.clearObsidianFolder, () => {
+    updateSettings(ctx.db, { obsidianDir: null })
+    return appInfoOf(ctx)
   })
   ipcMain.on(CHANNELS.reportProblem, () => void shell.openExternal(issueUrl(app.getVersion(), release(), process.arch)))
   ipcMain.handle(CHANNELS.getUpdateStatus, () => ctx.updater.status())
@@ -287,10 +338,11 @@ function registerWindowHandlers(ctx: AppContext): void {
 export function registerIpc(ctx: AppContext): void {
   const { db } = ctx
   const focus = createFocus()
+  const quota = (): QuotaSnapshot | null => readQuota(ctx.hookSetup.inboxDir, 'claude-code')
   ipcMain.handle(CHANNELS.getNow, () =>
-    getNowPayload(db, Date.now(), ctx.settings(), ctx.isFloatPinned(), focus.current(db)),
+    getNowPayload(db, Date.now(), ctx.settings(), ctx.isFloatPinned(), focus.current(db), quota()),
   )
-  ipcMain.handle(CHANNELS.getMain, () => getMainPayload(db, Date.now(), ctx.settings(), focus.current(db)))
+  ipcMain.handle(CHANNELS.getMain, () => getMainPayload(db, Date.now(), ctx.settings(), focus.current(db), quota()))
   registerItemHandlers(ctx, focus)
   registerIntegrationHandlers(ctx)
   registerAppHandlers(ctx)

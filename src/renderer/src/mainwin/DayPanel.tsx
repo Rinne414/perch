@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { DayView, TimelineEntry } from '@shared/calendar'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { groupTimeline, type DayView, type TimelineEntry } from '@shared/calendar'
 import { daysBetween } from '@shared/day'
 import { clock, dayTitle } from '@shared/format'
 import type { Item } from '@shared/types'
@@ -52,6 +52,102 @@ function Entry({ entry }: { entry: TimelineEntry }): React.JSX.Element {
   )
 }
 
+/** Every reply of one agent in one project that day, folded into one line until opened. */
+function AgentGroup({ title, replies }: { title: string; replies: readonly TimelineEntry[] }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const first = replies[0]
+  const last = replies[replies.length - 1]
+  const failed = replies.filter((r) => r.kind === 'agent-failed').length
+  return (
+    <li className="tl-entry agent tl-group">
+      <time>{clock(first.at)}</time>
+      <span className="pin" aria-hidden="true" />
+      <span className="what">
+        {title}
+        <small>
+          <span className="count">{replies.length} 次回覆</span> · 到 {clock(last.at)}
+          {failed > 0 && <span className="late-text"> · {failed} 次失敗</span>}
+          {!open && last.detail && <span className="last">最後：{last.detail}</span>}
+        </small>
+      </span>
+      <button className="chev" aria-expanded={open} aria-label={`${open ? '收起' : '展開'} ${title} 的回覆`} onClick={() => setOpen(!open)}>
+        {open ? '收起' : '展開'}
+      </button>
+      {open && (
+        <ol className="replies">
+          {replies.map((r) => (
+            <li key={r.id} className={r.kind === 'agent-failed' ? 'failed' : undefined}>
+              <time>{clock(r.at)}</time>
+              <span>{r.detail ?? '（沒有文字）'}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </li>
+  )
+}
+
+const NOTE_SAVE_MS = 600
+
+type NoteState = 'saved' | 'typing' | 'failed'
+const NOTE_STATE: Readonly<Record<NoteState, string>> = { saved: '已存', typing: '存檔中…', failed: '沒有存到，再打一個字試試' }
+
+/** The diary: saved a moment after typing stops, and right away when the day changes. */
+function DayNote({ day, initial }: { day: string; initial: string }): React.JSX.Element {
+  const [text, setText] = useState(initial)
+  const [state, setState] = useState<NoteState>('saved')
+  const pending = useRef<{ timer: number; text: string } | null>(null)
+
+  const save = useCallback(
+    (value: string) => {
+      pending.current = null
+      window.api
+        .setDayNote(day, value)
+        .then(() => setState('saved'))
+        .catch(() => setState('failed'))
+    },
+    [day],
+  )
+
+  // Leaving the day (or the tab) must not lose the last few words.
+  useEffect(
+    () => () => {
+      if (!pending.current) return
+      window.clearTimeout(pending.current.timer)
+      void window.api.setDayNote(day, pending.current.text)
+    },
+    [day],
+  )
+
+  const change = (value: string): void => {
+    setText(value)
+    setState('typing')
+    if (pending.current) window.clearTimeout(pending.current.timer)
+    pending.current = { timer: window.setTimeout(() => save(value), NOTE_SAVE_MS), text: value }
+  }
+
+  return (
+    <div className="day-block">
+      <div className="lbl-row">
+        <label className="lbl" htmlFor={`note-${day}`}>
+          筆記
+        </label>
+        <span className={`saved${state === 'failed' ? ' late-text' : ''}`} aria-live="polite">
+          {text || state !== 'saved' ? NOTE_STATE[state] : ''}
+        </span>
+      </div>
+      <textarea
+        id={`note-${day}`}
+        className="note-box"
+        rows={3}
+        value={text}
+        placeholder="今天過得怎樣？想到什麼都可以寫"
+        onChange={(e) => change(e.target.value)}
+      />
+    </div>
+  )
+}
+
 function LineInput({ placeholder, label, onEnter }: { placeholder: string; label: string; onEnter: (text: string) => Promise<unknown> }): React.JSX.Element {
   const [text, setText] = useState('')
   const show = useToast()
@@ -74,12 +170,12 @@ function LineInput({ placeholder, label, onEnter }: { placeholder: string; label
 }
 
 function Summary({ view }: { view: DayView }): React.JSX.Element {
-  const { done, routines, agents, focusMinutes } = view.summary
+  const { done, routines, agentReplies, agentProjects, focusMinutes } = view.summary
   return (
     <div className="summary">
       <div className="stat"><b>{done}</b><span>完成的事</span></div>
       <div className="stat"><b>{routines}</b><span>例行</span></div>
-      <div className="stat"><b>{agents}</b><span>agent 跑完</span></div>
+      <div className="stat"><b>{agentReplies}</b><span>agent 回覆{agentProjects > 0 && `（${agentProjects} 個 project）`}</span></div>
       <div className="stat"><b>{focusMinutes} 分</b><span>先做 5 分鐘</span></div>
     </div>
   )
@@ -122,6 +218,7 @@ export function DayPanel({ day, today }: { day: string; today: string }): React.
         <small>{relationLabel(day, today)}</small>
       </h2>
       {lookingBack && <Summary view={view} />}
+      {lookingBack && <DayNote key={day} day={day} initial={view.note} />}
       {view.schedule.length > 0 && (
         <Block label="行程">
           {view.schedule.map((o) => (
@@ -158,7 +255,15 @@ export function DayPanel({ day, today }: { day: string; today: string }): React.
       )}
       {lookingBack && view.timeline.length > 0 && (
         <Block label="這天的經過">
-          <ul className="tl">{view.timeline.map((e) => <Entry key={e.id} entry={e} />)}</ul>
+          <ul className="tl">
+            {groupTimeline(view.timeline).map((line) =>
+              line.kind === 'entry' ? (
+                <Entry key={line.entry.id} entry={line.entry} />
+              ) : (
+                <AgentGroup key={`${line.title}@${line.replies[0].id}`} title={line.title} replies={line.replies} />
+              ),
+            )}
+          </ul>
         </Block>
       )}
       {quiet && <p className="faint">{lookingBack ? '這天沒有紀錄。' : '這天還沒有排任何事。'}</p>}

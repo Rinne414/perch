@@ -1,13 +1,14 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
-import type { EntryKind, TimelineEntry } from '@shared/calendar'
+import { groupTimeline, type EntryKind, type TimelineEntry } from '@shared/calendar'
 import { dayKey } from '@shared/day'
 import { clock, dayTitle, monthDay } from '@shared/format'
 import { bucketOf, firstDayOf, isTopLevelWork, type ListSettings } from '@shared/lists'
 import { scheduleLabel } from '@shared/schedule'
 import type { AgentSession, Item, TimelineEvent } from '@shared/types'
 import { listAgentSessions } from '../db/agents'
+import { listDayNotes } from '../db/dayNotes'
 import { listEvents } from '../db/events'
 import { listAllItems } from '../db/items'
 import { entryOf } from './calendar'
@@ -24,6 +25,8 @@ export interface ExportData {
   readonly items: readonly Item[]
   readonly timeline: readonly TimelineEvent[]
   readonly agentSessions: readonly AgentSession[]
+  /** The diary: one note per day (YYYY-MM-DD), oldest first. */
+  readonly dayNotes: readonly { readonly day: string; readonly text: string }[]
 }
 
 export function collectExport(db: DatabaseSync, version: string, now: number): ExportData {
@@ -35,6 +38,7 @@ export function collectExport(db: DatabaseSync, version: string, now: number): E
     items: listAllItems(db),
     timeline: listEvents(db, 0, Number.MAX_SAFE_INTEGER),
     agentSessions: listAgentSessions(db, 0),
+    dayNotes: listDayNotes(db).map(({ day, text }) => ({ day, text })),
   }
 }
 
@@ -75,10 +79,23 @@ function routineLine(r: Item): string {
   return `- ${oneLine(r.title)} · ${rhythm}${r.schedule ? '' : ` · ${last}`}`
 }
 
-const entryLine = (e: TimelineEntry): string =>
+export const entryLine = (e: TimelineEntry): string =>
   `- ${e.hasTime ? `${clock(e.at)} ` : ''}${KIND_LABEL[e.kind]}：${oneLine(e.title)}${e.detail ? `（${oneLine(e.detail)}）` : ''}`
 
-function timelineLines(events: readonly TimelineEvent[], dayStartHour: number): string[] {
+/** A day's lines: each event, with an agent's many replies in one project folded into one line. */
+export function dayLines(entries: readonly TimelineEntry[]): string[] {
+  return groupTimeline(entries).map((line) => {
+    if (line.kind === 'entry') return entryLine(line.entry)
+    const [first, last] = [line.replies[0], line.replies[line.replies.length - 1]]
+    return `- ${clock(first.at)} Agent：${oneLine(line.title)}（${line.replies.length} 次回覆，到 ${clock(last.at)}）`
+  })
+}
+
+/** The day's note as a quote, so it reads apart from the timeline. */
+export const noteLines = (note: string): string[] =>
+  note.trim() ? [...note.trim().split(/\r?\n/).map((l) => (l ? `> ${l}` : '>')), ''] : []
+
+function timelineLines(events: readonly TimelineEvent[], notes: ExportData['dayNotes'], dayStartHour: number): string[] {
   const days = new Map<string, TimelineEntry[]>()
   for (const e of events) {
     const entry = entryOf(e)
@@ -86,12 +103,13 @@ function timelineLines(events: readonly TimelineEvent[], dayStartHour: number): 
     const key = dayKey(e.at, dayStartHour)
     days.set(key, [...(days.get(key) ?? []), entry])
   }
-  return [...days.keys()]
+  const noteOf = new Map(notes.map((n) => [n.day, n.text]))
+  return [...new Set([...days.keys(), ...noteOf.keys()])]
     .sort()
     .reverse()
     .flatMap((key) => {
       const { weekday } = dayTitle(key)
-      return [`### ${key} ${weekday}`, '', ...days.get(key)!.map(entryLine), '']
+      return [`### ${key} ${weekday}`, '', ...noteLines(noteOf.get(key) ?? ''), ...dayLines(days.get(key) ?? []), '']
     })
 }
 
@@ -123,7 +141,7 @@ export function toMarkdown(data: ExportData, settings: ListSettings, now: number
     ...section('例行', routines.map(routineLine), '（沒有）'),
     '## 紀錄',
     '',
-    ...timelineLines(data.timeline, settings.dayStartHour),
+    ...timelineLines(data.timeline, data.dayNotes, settings.dayStartHour),
   ]
     .join('\n')
     .trimEnd()

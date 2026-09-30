@@ -69,6 +69,14 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE items ADD COLUMN schedule TEXT;
   `,
+  // A note per day (the diary in the calendar), keyed by the app's day (YYYY-MM-DD).
+  `
+  CREATE TABLE day_notes (
+    day TEXT PRIMARY KEY,
+    text TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  `,
 ]
 
 const userVersion = (db: DatabaseSync): number =>

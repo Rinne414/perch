@@ -218,3 +218,16 @@
 .mw .warn-text {
   color: var(--wait);
 }
+
+/* A setting that belongs to the agent row above it */
+.mw .card .name.indent {
+  padding-left: 14px;
+  color: var(--dim);
+  font-weight: 400;
+}
+
+/* The chosen vault on its own line above what gets written there */
+.mw .obsidian-sub .path {
+  display: block;
+  margin-bottom: 2px;
+}

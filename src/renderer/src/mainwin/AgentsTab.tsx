@@ -1,6 +1,7 @@
 import { agentName, STATUS_LABEL } from '@shared/agents'
 import { ago } from '@shared/format'
 import type { MainPayload } from '@shared/ipc'
+import { QUOTA_ALERT_PERCENT, QUOTA_LABEL, resetLabel, type QuotaSnapshot } from '@shared/quota'
 import type { AgentSession } from '@shared/types'
 import { project, ResumeButton } from '../float/rows'
 import { useAction } from './Toast'
@@ -76,9 +77,35 @@ function Section({ id, title, note, sessions, group, at }: {
   )
 }
 
+/** Claude Code's usage limits as its status line last reported them. */
+function QuotaCard({ quota, at }: { quota: QuotaSnapshot; at: number }): React.JSX.Element {
+  const age = ago(quota.at, at)
+  return (
+    <section className="quota" aria-labelledby="ag-quota">
+      <div className="quota-head">
+        <h2 id="ag-quota">Claude Code 額度</h2>
+        <span className="sub">{age === '剛剛' ? '剛剛更新' : `${age}前更新`} · 只有 Claude Code 開著時才會更新</span>
+      </div>
+      {quota.windows.map((w) => {
+        const used = Math.round(w.usedPercent)
+        return (
+          <div className="quota-row" key={w.key}>
+            <span className="sub">{QUOTA_LABEL[w.key]}</span>
+            <span className="qbar" role="progressbar" aria-label={`${QUOTA_LABEL[w.key]}已用`} aria-valuenow={used} aria-valuemin={0} aria-valuemax={100}>
+              <i className={w.usedPercent >= QUOTA_ALERT_PERCENT ? 'hot' : undefined} style={{ width: `${Math.min(100, w.usedPercent)}%` }} />
+            </span>
+            <b>{used}%</b>
+            <span className="sub">{resetLabel(w.resetsAt, at)}</span>
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
 /** Every agent session of the last week: what it was asked, what came back, and a way back into it. */
 export function AgentsTab({ payload, at }: { payload: MainPayload; at: number }): React.JSX.Element {
-  const { attention, running, recentAgents } = payload
+  const { attention, running, recentAgents, quota } = payload
   const run = useAction()
   const nothing = attention.length + running.length + recentAgents.length === 0
   return (
@@ -92,6 +119,7 @@ export function AgentsTab({ payload, at }: { payload: MainPayload; at: number })
           </button>
         )}
       </header>
+      {quota && <QuotaCard quota={quota} at={at} />}
       <Section id="ag-wait" title="等你處理" note={`${attention.length} 個`} sessions={attention} group="attention" at={at} />
       <Section id="ag-run" title="執行中" note={`${running.length} 個`} sessions={running} group="running" at={at} />
       <Section id="ag-recent" title="最近跑完" note="看過的會變淡，不會消失" sessions={recentAgents} group="recent" at={at} />

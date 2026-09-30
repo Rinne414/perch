@@ -24,8 +24,32 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: Perch
   artifactName: Perch-Setup-${version}.${ext}
+# macOS: one universal app (Apple silicon and Intel). No Apple Developer ID yet, so it is only
+# ad-hoc signed ("-"): it runs after the person allows it once in System Settings, and updates
+# are downloaded by hand (the app opens the release page). The zip is what latest-mac.yml lists.
+mac:
+  target:
+    - target: dmg
+      arch: universal
+    - target: zip
+      arch: universal
+  icon: build/icon.png
+  category: public.app-category.productivity
+  identity: '-'
+  artifactName: Perch-${version}-mac.${ext}
+# Linux: the AppImage updates itself; the .deb is updated by installing the new one.
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: build/icon.png
+  category: Utility
+  synopsis: A desktop reminder for people who run AI coding agents
+  maintainer: Rinne414 <52149077+Rinne414@users.noreply.github.com>
+  artifactName: Perch-${version}-linux-${arch}.${ext}
 # Written into the app as app-update.yml: 設定 → 檢查更新 reads the latest GitHub release of this repo.
-# Uploading is done by `pnpm run release` (scripts/release.mjs), never by electron-builder itself.
+# Windows files are uploaded by `pnpm run release` (scripts/release.mjs); the macOS and Linux ones
+# by the CI workflow when that release is published. electron-builder itself never uploads.
 publish:
   provider: github
   owner: Rinne414

@@ -3,6 +3,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { getSetting, setSetting } from '../db/settings'
 import { onScreen, watchBounds, type SavedBounds } from './bounds'
 import { loadView, preloadPath } from './load'
+import { glassWindowOptions } from './glass'
 
 interface FloatState {
   readonly bounds: SavedBounds
@@ -30,8 +31,7 @@ export function createFloatWindow(db: DatabaseSync): BrowserWindow {
     show: false,
     skipTaskbar: true,
     alwaysOnTop: state.pinned,
-    backgroundMaterial: 'acrylic',
-    backgroundColor: '#00000000',
+    ...glassWindowOptions(),
     hasShadow: true,
     webPreferences: { preload: preloadPath(), contextIsolation: true, sandbox: true },
   })

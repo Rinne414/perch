@@ -55,6 +55,14 @@ describe('update state', () => {
     expect(seen).toHaveLength(1)
   })
 
+  test('a system that installs by hand hears about the version and can check again', () => {
+    const { state } = track()
+    state.checking()
+    state.manual('0.2.0')
+    expect(state.current()).toEqual({ state: 'manual', version: '0.2.0' })
+    expect(state.canCheck()).toBe(true)
+  })
+
   test('progress outside a download is ignored', () => {
     const { seen, state } = track()
     state.progress(50)

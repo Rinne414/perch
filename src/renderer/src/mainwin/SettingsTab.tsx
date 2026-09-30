@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { agentName } from '@shared/agents'
-import type { AgentIntegration, HookState, IntegrationsPayload, SourceUsage } from '@shared/integrations'
+import type { AgentIntegration, HookState, IntegrationsPayload, SourceUsage, StatuslineInfo } from '@shared/integrations'
 import type { AppInfo, GlassLevel } from '@shared/ipc'
 import { useToast } from './Toast'
 import { DataSection, ShortcutRow, UpdateSection } from './Upkeep'
@@ -60,6 +60,74 @@ function AgentRowSetting({
       )}
       {error && <p className="note late-text">讀不到設定檔：{error}</p>}
       {state === 'installed' && NOTES[agent] && <p className="note">{NOTES[agent]}</p>}
+    </div>
+  )
+}
+
+interface StatuslineView {
+  readonly label: string
+  readonly cls: string
+  readonly sub: React.ReactNode
+  readonly action: { readonly label: string; readonly on: boolean } | null
+  /** What changes inside Claude Code when the person installs it. */
+  readonly note?: string
+}
+
+function statuslineView({ state, other }: StatuslineInfo): StatuslineView | null {
+  const theirs = other && <code>{other}</code>
+  switch (state) {
+    case 'installed':
+      return {
+        label: '已連線',
+        cls: 'ok',
+        sub: other ? <>額度會出現在 Agent 分頁；Claude Code 裡照常顯示你的 {theirs}</> : '5 小時和 7 天的用量會出現在 Agent 分頁；快用完時浮窗會提醒',
+        action: { label: '移除', on: false },
+      }
+    case 'outdated':
+      return { label: '指向舊位置', cls: 'warn', sub: '狀態列還指向別的 Perch，重新安裝就會改過來', action: { label: '重新安裝', on: true } }
+    case 'not-installed':
+      return {
+        label: '未安裝',
+        cls: 'off',
+        sub: '裝一個狀態列，讓 Perch 記下 5 小時和 7 天的用量（Pro / Max 才有）',
+        action: { label: '安裝', on: true },
+        note: 'Claude Code 底下會多一行「5h 23% · 7d 41%」，原本那排快捷鍵提示會被它取代。',
+      }
+    case 'taken':
+      return other
+        ? {
+            label: '未安裝',
+            cls: 'off',
+            sub: <>你已經有自己的狀態列 {theirs}。裝上後 Perch 先記下額度，再照常執行它，Claude Code 裡看起來完全一樣。</>,
+            action: { label: '安裝', on: true },
+          }
+        : { label: '讀不到設定檔', cls: 'warn', sub: '~/.claude/settings.json 讀不到，Perch 不會去改它', action: null }
+    default:
+      return null
+  }
+}
+
+/** Claude Code's status line, which reports the plan's usage limits. */
+function StatuslineRow({ info, busy, onToggle }: { info: StatuslineInfo; busy: boolean; onToggle: (on: boolean) => void }): React.JSX.Element | null {
+  const view = statuslineView(info)
+  if (!view) return null
+  const { label, cls, sub, action, note } = view
+  return (
+    <div className="r">
+      <span className="name indent">額度</span>
+      <span className={`state ${cls}`}>
+        <i />
+        {label}
+      </span>
+      <span className="sub">{sub}</span>
+      {action ? (
+        <button className={`btn${action.on ? ' primary' : ''}`} disabled={busy} onClick={() => onToggle(action.on)}>
+          {action.label}
+        </button>
+      ) : (
+        <span />
+      )}
+      {note && <p className="note">{note}</p>}
     </div>
   )
 }
@@ -214,6 +282,18 @@ export function SettingsTab(): React.JSX.Element {
       .finally(() => setBusy(null))
   }
 
+  const toggleStatusline = (on: boolean): void => {
+    setBusy('statusline')
+    window.api
+      .setStatusline(on)
+      .then((next) => {
+        setData(next)
+        show(on ? '已裝上 Claude Code 的狀態列，它下一次回覆後就會有數字' : '已移除 Claude Code 的狀態列')
+      })
+      .catch(() => show('沒有改成功，Claude Code 的設定檔可能讀不到'))
+      .finally(() => setBusy(null))
+  }
+
   const updateAll = async (agents: readonly string[]): Promise<void> => {
     setBusy('all')
     try {
@@ -261,12 +341,12 @@ export function SettingsTab(): React.JSX.Element {
         )}
         <div className="card">
           {data?.agents.map((a) => (
-            <AgentRowSetting
-              key={a.agent}
-              entry={a}
-              busy={busy === a.agent || busy === 'all'}
-              onToggle={(on) => toggle(a.agent, on)}
-            />
+            <Fragment key={a.agent}>
+              <AgentRowSetting entry={a} busy={busy === a.agent || busy === 'all'} onToggle={(on) => toggle(a.agent, on)} />
+              {a.agent === 'claude-code' && (
+                <StatuslineRow info={data.statusline} busy={busy === 'statusline'} onToggle={toggleStatusline} />
+              )}
+            </Fragment>
           ))}
         </div>
       </section>
@@ -288,7 +368,7 @@ export function SettingsTab(): React.JSX.Element {
       </section>
 
       <GeneralSection info={info} setInfo={setInfo} />
-      <DataSection info={info} />
+      <DataSection info={info} onInfo={setInfo} />
       <UpdateSection info={info} />
     </>
   )

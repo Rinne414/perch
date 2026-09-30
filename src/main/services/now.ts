@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { parseCapture } from '@shared/capture'
+import { quotaAlert, type QuotaSnapshot } from '@shared/quota'
 import { addDays, dayKey, dayStart, moveToDay } from '@shared/day'
 import type { CaptureTarget, FocusState, NowPayload } from '@shared/ipc'
 import { buildNow } from '@shared/now'
@@ -21,6 +22,7 @@ export function getNowPayload(
   settings: AppSettings,
   pinned: boolean,
   focus: FocusState | null = null,
+  quota: QuotaSnapshot | null = null,
 ): NowPayload {
   const view = buildNow(listOpenItems(db), listAgentSessions(db, now - AGENT_WINDOW_MS), now, settings)
   const dismissed = getSetting<string | null>(db, RECAP_DISMISSED, null) === view.day
@@ -31,7 +33,7 @@ export function getNowPayload(
         yesterday,
         listEvents(db, dayStart(yesterday, settings.dayStartHour), dayStart(view.day, settings.dayStartHour)),
       )
-  return { view, recap, pinned, dayStartHour: settings.dayStartHour, focus }
+  return { view, recap, pinned, dayStartHour: settings.dayStartHour, focus, quotaAlert: quotaAlert(quota, now) }
 }
 
 /**

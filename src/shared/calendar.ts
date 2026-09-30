@@ -29,8 +29,38 @@ export interface TimelineEntry {
 export interface DaySummary {
   readonly done: number
   readonly routines: number
-  readonly agents: number
+  /** Agent turns that finished or failed that day. */
+  readonly agentReplies: number
+  /** How many agent + project pairs those replies came from. */
+  readonly agentProjects: number
   readonly focusMinutes: number
+}
+
+/** A line of a day's timeline: one event, or every reply of one agent in one project that day. */
+export type TimelineLine =
+  | { readonly kind: 'entry'; readonly entry: TimelineEntry }
+  | { readonly kind: 'agent-group'; readonly title: string; readonly replies: readonly TimelineEntry[] }
+
+const isAgentReply = (e: TimelineEntry): boolean => e.kind === 'agent' || e.kind === 'agent-failed'
+
+/**
+ * Folds a day's agent replies into one line per agent and project (the entry title,
+ * "Claude Code · perch"), placed where the first reply was. A single reply stays a plain entry.
+ */
+export function groupTimeline(entries: readonly TimelineEntry[]): TimelineLine[] {
+  const replies = new Map<string, TimelineEntry[]>()
+  for (const e of entries) {
+    if (!isAgentReply(e)) continue
+    const list = replies.get(e.title) ?? []
+    list.push(e)
+    replies.set(e.title, list)
+  }
+  return entries.flatMap((e): TimelineLine[] => {
+    if (!isAgentReply(e)) return [{ kind: 'entry', entry: e }]
+    const group = replies.get(e.title)!
+    if (group[0] !== e) return []
+    return [group.length === 1 ? { kind: 'entry', entry: e } : { kind: 'agent-group', title: e.title, replies: group }]
+  })
 }
 
 export interface DayView {
@@ -46,6 +76,8 @@ export interface DayView {
   readonly dues: readonly Item[]
   /** Future days: every-N-days routines expected to come due that day. */
   readonly routinesDue: readonly Item[]
+  /** The person's note for the day (the diary); empty when none. */
+  readonly note: string
 }
 
 /**

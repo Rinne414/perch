@@ -21,6 +21,8 @@ export interface UpdateState {
   checking(): void
   latest(): void
   found(version: string): void
+  /** Newer, but to be downloaded by hand on this system. */
+  manual(version: string): void
   progress(percent: number): void
   downloaded(version: string): void
   failed(err: unknown): void
@@ -44,6 +46,7 @@ export function createUpdateState(onChange: (status: UpdateStatus) => void): Upd
     },
     latest: () => set({ state: 'latest' }),
     found: (version) => set({ state: 'downloading', version, percent: 0 }),
+    manual: (version) => set({ state: 'manual', version }),
     progress: (percent) => {
       if (status.state !== 'downloading') return
       const whole = Math.min(100, Math.max(0, Math.floor(percent)))

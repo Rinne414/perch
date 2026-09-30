@@ -5,6 +5,7 @@ import { getSetting, setSetting } from '../db/settings'
 import { iconPath } from '../paths'
 import { onScreen, watchBounds, type SavedBounds } from './bounds'
 import { loadView, preloadPath } from './load'
+import { glassWindowOptions } from './glass'
 
 interface MainState {
   readonly bounds: SavedBounds
@@ -26,8 +27,7 @@ export function createMainWindow(db: DatabaseSync, tab: MainTab = 'today'): Brow
     show: false,
     title: 'Perch',
     icon: iconPath(),
-    backgroundMaterial: 'acrylic',
-    backgroundColor: '#00000000',
+    ...glassWindowOptions(),
     hasShadow: true,
     webPreferences: { preload: preloadPath(), contextIsolation: true, sandbox: true },
   })

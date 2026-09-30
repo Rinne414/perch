@@ -2,6 +2,7 @@ import type { DayMarks, DayView } from './calendar'
 import type { IntegrationsPayload } from './integrations'
 import type { MainView } from './mainView'
 import type { NowView } from './now'
+import type { QuotaSnapshot, QuotaWindow } from './quota'
 import type { Recap } from './recap'
 import type { AgentSession, Item, RoutineSchedule } from './types'
 
@@ -36,6 +37,8 @@ export interface NowPayload {
   readonly pinned: boolean
   readonly dayStartHour: number
   readonly focus: FocusState | null
+  /** Claude Code's 5-hour window once it is nearly used up; null otherwise. */
+  readonly quotaAlert: QuotaWindow | null
 }
 
 export interface MainPayload {
@@ -49,6 +52,8 @@ export interface MainPayload {
   /** Days untouched before an undated item moves to "舊的". */
   readonly staleDays: number
   readonly focus: FocusState | null
+  /** Claude Code's usage limits, only windows that have not reset yet; null when none are known. */
+  readonly quota: QuotaSnapshot | null
 }
 
 /** How much the glass tints what is behind it: 淡 / 中 / 濃. */
@@ -66,6 +71,8 @@ export interface AppInfo {
   readonly captureShortcut: string
   /** When the newest backup copy of the database was taken; null before the first one. */
   readonly lastBackupAt: number | null
+  /** Where the daily Obsidian notes go (inside its Perch/ folder); null when off. */
+  readonly obsidianDir: string | null
 }
 
 /** Folders the settings page can open in Explorer. */
@@ -84,6 +91,8 @@ export type UpdateStatus =
   | { readonly state: 'latest' }
   | { readonly state: 'downloading'; readonly version: string; readonly percent: number }
   | { readonly state: 'ready'; readonly version: string }
+  /** A newer version this system cannot install by itself (macOS without signing, a Linux .deb): download it by hand. */
+  | { readonly state: 'manual'; readonly version: string }
   | { readonly state: 'error'; readonly message: string }
 
 /** Where an export was written. */
@@ -147,6 +156,8 @@ export interface Api {
   /** Fills in something that happened on a past day ("下午3點 開會"). */
   addManualEntry(day: string, text: string): Promise<void>
   removeManualEntry(entryId: number): Promise<void>
+  /** Saves the day's note (the diary); an empty text removes it. */
+  setDayNote(day: string, text: string): Promise<void>
   acknowledgeAgents(ids: readonly string[]): Promise<void>
   dismissRecap(): Promise<void>
   getIntegrations(): Promise<IntegrationsPayload>
@@ -154,6 +165,8 @@ export interface Api {
   setHook(agent: string, on: boolean): Promise<IntegrationsPayload>
   /** Deletes everything one agent wrote; returns how many rows went. */
   clearAgentData(agent: string): Promise<number>
+  /** Installs (on = true) or removes Claude Code's status line that reports its usage limits. */
+  setStatusline(on: boolean): Promise<IntegrationsPayload>
   getAppInfo(): Promise<AppInfo>
   setOpenAtLogin(on: boolean): Promise<AppInfo>
   setGlass(level: GlassLevel): Promise<AppInfo>
@@ -162,6 +175,10 @@ export interface Api {
   openFolder(folder: AppFolder): void
   /** Asks for a folder and writes a JSON and a Markdown copy of everything; null when cancelled. */
   exportData(): Promise<ExportResult | null>
+  /** Asks for an Obsidian folder, then writes the last 30 days into its Perch/ folder; null when cancelled. */
+  pickObsidianFolder(): Promise<{ readonly info: AppInfo; readonly written: number } | null>
+  /** Stops writing Obsidian notes; files already written stay. */
+  clearObsidianFolder(): Promise<AppInfo>
   /** Opens a new GitHub issue with the version and Windows build filled in. */
   reportProblem(): void
   getUpdateStatus(): Promise<UpdateStatus>
@@ -208,17 +225,21 @@ export const CHANNELS = {
   captureOn: 'calendar:capture',
   addManualEntry: 'calendar:add-entry',
   removeManualEntry: 'calendar:remove-entry',
+  setDayNote: 'calendar:note',
   acknowledgeAgents: 'agent:acknowledge',
   dismissRecap: 'recap:dismiss',
   getIntegrations: 'integrations:get',
   setHook: 'integrations:hook',
   clearAgentData: 'integrations:clear',
+  setStatusline: 'integrations:statusline',
   getAppInfo: 'app:info',
   setOpenAtLogin: 'app:open-at-login',
   setGlass: 'app:glass',
   setCaptureShortcut: 'app:capture-shortcut',
   openFolder: 'app:open-folder',
   exportData: 'app:export',
+  pickObsidianFolder: 'app:obsidian-pick',
+  clearObsidianFolder: 'app:obsidian-clear',
   reportProblem: 'app:report-problem',
   getUpdateStatus: 'update:get',
   checkForUpdate: 'update:check',

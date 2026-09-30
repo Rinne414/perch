@@ -69,8 +69,8 @@ describe('opening a database', () => {
     // A database from the version before the last migration.
     const path = join(dir, 'old.db')
     const old = openDatabase(path)
-    old.exec('ALTER TABLE items DROP COLUMN schedule')
-    old.exec('PRAGMA user_version = 2')
+    old.exec('DROP TABLE day_notes')
+    old.exec('PRAGMA user_version = 3')
     old.close()
 
     openDatabase(join(dir, 'fresh.db'), () => calls.push('fresh')).close()

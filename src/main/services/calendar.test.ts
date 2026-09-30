@@ -36,6 +36,22 @@ describe('monthMarks', () => {
 })
 
 describe('dayView', () => {
+  test('counts every agent reply and the projects they came from, and cleans old tag titles', () => {
+    const turn = (sessionId: string, cwd: string, title: string, h: number, m: number): void => {
+      applyAgentEvent(db, { v: 1, agent: 'claude-code', sessionId, status: 'running', cwd, title, at: at(9, 28, h, m) }, NOW)
+      applyAgentEvent(db, { v: 1, agent: 'claude-code', sessionId, status: 'done', at: at(9, 28, h, m + 1) }, NOW)
+    }
+    turn('a', 'C:\code\style', 'ok', 10, 0)
+    turn('a', 'C:\code\style', '<pasted_content id="a52e">', 10, 10)
+    turn('b', 'C:\code\sorter', 'continue', 11, 0)
+
+    const view = dayView(db, '2026-09-28', NOW, DEFAULT_SETTINGS)
+
+    expect(view.summary).toMatchObject({ agentReplies: 3, agentProjects: 2 })
+    expect(view.timeline.map((e) => e.detail)).toEqual(['ok', '（貼上的內容）', 'continue'])
+  })
+
+
   test('a past day tells what happened and sums it up', () => {
     const task = createItem(db, { kind: 'task', title: '修好登入頁' }, at(9, 27, 9))
     completeItem(db, task.id, at(9, 28, 9, 40))
@@ -50,7 +66,7 @@ describe('dayView', () => {
     const view = dayView(db, '2026-09-28', NOW, DEFAULT_SETTINGS)
 
     expect(view.relation).toBe('past')
-    expect(view.summary).toEqual({ done: 1, routines: 1, agents: 1, focusMinutes: 12 })
+    expect(view.summary).toEqual({ done: 1, routines: 1, agentReplies: 1, agentProjects: 1, focusMinutes: 12 })
     expect(view.timeline.map((e) => [e.kind, e.title])).toEqual([
       ['done', '修好登入頁'],
       ['agent', 'Codex · api'],

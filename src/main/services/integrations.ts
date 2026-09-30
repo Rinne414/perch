@@ -1,6 +1,6 @@
 import { sep } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
-import type { AgentIntegration, IntegrationsPayload } from '@shared/integrations'
+import type { AgentIntegration, IntegrationsPayload, StatuslineInfo } from '@shared/integrations'
 import {
   INSTALLABLE,
   install,
@@ -11,6 +11,7 @@ import {
   type HookSetup,
   type InstallableAgent,
 } from '../../integrations/install'
+import { installStatusline, statuslineInfo, uninstallStatusline } from '../../integrations/statusline'
 import { agentSourceUsage } from '../db/sources'
 
 const shortPath = (file: string, home: string): string =>
@@ -25,10 +26,26 @@ function integrationOf(agent: InstallableAgent, setup: HookSetup): AgentIntegrat
   }
 }
 
+/** A settings file that cannot be read is reported as taken with nothing to wrap, so nothing is written to it. */
+function currentStatusline(setup: HookSetup): StatuslineInfo {
+  try {
+    return statuslineInfo(setup)
+  } catch {
+    return { state: 'taken', other: null }
+  }
+}
+
+/** Adds or removes Claude Code's status line (a backup of settings.json is kept). */
+export function setStatusline(on: boolean, setup: HookSetup): void {
+  if (on) installStatusline(setup)
+  else uninstallStatusline(setup.home)
+}
+
 export function integrationsPayload(db: DatabaseSync, setup: HookSetup): IntegrationsPayload {
   return {
     agents: INSTALLABLE.map((agent) => integrationOf(agent, setup)),
     sources: agentSourceUsage(db),
+    statusline: currentStatusline(setup),
   }
 }
 

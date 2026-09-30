@@ -1,10 +1,13 @@
-// Draws the app icon (build/icon.png, 256x256) without any image library:
+// Draws the app icon (build/icon.png, 1024x1024, the size macOS asks for) without any image library:
 // a dark glass tile, a mint ring, and an amber dot for "something is waiting on you".
 // Run: node scripts/make-icon.mjs
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
 
-const SIZE = 256
+/** The shapes are laid out on a 256-unit grid and drawn at SIZE pixels. */
+const UNIT = 256
+const SIZE = 1024
+const SCALE = SIZE / UNIT
 const SAMPLES = 4 // per axis, for anti-aliasing
 
 const TOP = [36, 44, 64]
@@ -15,8 +18,8 @@ const DOT = [255, 207, 107]
 const tile = (x, y) => {
   const r = 56
   const m = 8
-  const cx = Math.min(Math.max(x, m + r), SIZE - m - r)
-  const cy = Math.min(Math.max(y, m + r), SIZE - m - r)
+  const cx = Math.min(Math.max(x, m + r), UNIT - m - r)
+  const cy = Math.min(Math.max(y, m + r), UNIT - m - r)
   return Math.hypot(x - cx, y - cy) <= r
 }
 const ringAt = (x, y) => {
@@ -35,10 +38,10 @@ function pixel(px, py) {
   let a = 0
   for (let sy = 0; sy < SAMPLES; sy++) {
     for (let sx = 0; sx < SAMPLES; sx++) {
-      const x = px + (sx + 0.5) / SAMPLES
-      const y = py + (sy + 0.5) / SAMPLES
+      const x = (px + (sx + 0.5) / SAMPLES) / SCALE
+      const y = (py + (sy + 0.5) / SAMPLES) / SCALE
       if (!tile(x, y)) continue
-      const t = y / SIZE
+      const t = y / UNIT
       let c = TOP.map((v, i) => v + (BOTTOM[i] - v) * t)
       // A faint sheen along the top edge, like light on glass.
       if (y < 40) c = c.map((v) => v + (40 - y) * 0.6)

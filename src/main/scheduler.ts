@@ -1,4 +1,6 @@
 import { dayKey } from '@shared/day'
+import { liveWindows, quotaAlert } from '@shared/quota'
+import { readQuota } from '../integrations/quota'
 import type { AppContext } from './context'
 import { listAgentSessions } from './db/agents'
 import { listOpenItems, rolloverPlans, updateItem } from './db/items'
@@ -16,6 +18,8 @@ const AGENT_LOOKBACK_MS = 2 * 3_600_000
  */
 export function startScheduler(ctx: AppContext, beforeTick: () => void = () => undefined): () => void {
   const announced = new Map<string, number>()
+  let quotaSeen = ''
+  let lastDay = ''
 
   const tick = (): void => {
     beforeTick()
@@ -33,6 +37,20 @@ export function startScheduler(ctx: AppContext, beforeTick: () => void = () => u
     }
 
     for (const alert of scheduleAlerts(db, now)) notify(alert, ctx.showFloat)
+
+    // New numbers from Claude Code's status line, a window that reset, or the 5-hour alert coming or going.
+    const quota = readQuota(ctx.hookSetup.inboxDir, 'claude-code')
+    const quotaNow = `${quota?.at ?? 0}/${liveWindows(quota, now).length}/${quotaAlert(quota, now) ? 1 : 0}`
+    if (quotaNow !== quotaSeen) {
+      quotaSeen = quotaNow
+      changed = true
+    }
+
+    // Today's Obsidian note follows the day; the day that just ended gets its last write.
+    const today = dayKey(now, settings.dayStartHour)
+    if (lastDay && lastDay !== today) ctx.syncObsidian(lastDay)
+    ctx.syncObsidian(today)
+    lastDay = today
 
     for (const s of agentsToNotify(listAgentSessions(db, now - AGENT_LOOKBACK_MS), announced, now)) {
       announced.set(s.id, s.attentionAt!)

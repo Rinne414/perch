@@ -4,8 +4,10 @@ import { parseCapture } from '@shared/capture'
 import { addDays, dayKey, dayStart, daysBetween } from '@shared/day'
 import { dueDayOf, isTopLevelWork } from '@shared/lists'
 import { todayEntries } from '@shared/now'
+import { promptTitle } from '@shared/prompt'
 import { occurrencesOn } from '@shared/schedule'
 import type { Item, TimelineEvent } from '@shared/types'
+import { getDayNote } from '../db/dayNotes'
 import { appendEvent, deleteEvent, getEvent, listEvents } from '../db/events'
 import { createItem, listOpenItems } from '../db/items'
 import type { AppSettings } from './settings'
@@ -39,7 +41,7 @@ export function entryOf(e: TimelineEvent): TimelineEntry | null {
   if (!kind) return null
   if (kind === 'done' && isStep(e)) return { ...base, kind, title: `${String(e.data!['stepOf'])} › ${e.title}` }
   if (kind === 'agent' || kind === 'agent-failed') {
-    return { ...base, kind, detail: typeof e.data?.['prompt'] === 'string' ? e.data['prompt'] : null }
+    return { ...base, kind, detail: typeof e.data?.['prompt'] === 'string' ? promptTitle(e.data['prompt']) : null }
   }
   if (kind === 'focus') return { ...base, kind, detail: `做了 ${Number(e.data?.['minutes'] ?? 0)} 分` }
   if (kind === 'manual') return { ...base, kind, hasTime: e.data?.['noTime'] !== true }
@@ -47,7 +49,8 @@ export function entryOf(e: TimelineEvent): TimelineEntry | null {
 }
 
 function summaryOf(events: readonly TimelineEvent[]): DaySummary {
-  const agents = new Set<string>()
+  const projects = new Set<string>()
+  let agentReplies = 0
   let done = 0
   let routines = 0
   let focusMinutes = 0
@@ -55,9 +58,12 @@ function summaryOf(events: readonly TimelineEvent[]): DaySummary {
     if (e.type === 'item.done' && !isStep(e)) done++
     else if (e.type === 'routine.done') routines++
     else if (e.type === 'focus') focusMinutes += Number(e.data?.['minutes'] ?? 0)
-    else if (e.type === 'agent.status' && e.data?.['status'] === 'done' && e.agentSessionId) agents.add(e.agentSessionId)
+    else if (e.type === 'agent.status') {
+      agentReplies++
+      projects.add(e.title)
+    }
   }
-  return { done, routines, agents: agents.size, focusMinutes }
+  return { done, routines, agentReplies, agentProjects: projects.size, focusMinutes }
 }
 
 const eventsOf = (db: DatabaseSync, day: string, s: AppSettings): TimelineEvent[] =>
@@ -114,6 +120,7 @@ export function dayView(db: DatabaseSync, day: string, now: number, s: AppSettin
     // Today's deadlines are already on today's list above.
     dues: relation === 'future' ? work.filter((i) => dueDayOf(i, s.dayStartHour) === day) : [],
     routinesDue: relation === 'future' ? open.filter((i) => expectedDay(i, today, s) === day) : [],
+    note: getDayNote(db, day),
   }
 }
 

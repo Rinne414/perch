@@ -1,9 +1,10 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { CHANNELS, type UpdateStatus } from '@shared/ipc'
 import type { Log } from './log'
+import { REPO_URL } from './services/report'
 import { createUpdateState } from './services/update'
 
 export interface Updater {
@@ -37,6 +38,13 @@ function useDevFeed(dataDir: string): boolean {
 const UNAVAILABLE: UpdateStatus = { state: 'unavailable' }
 
 /**
+ * Windows installs a new version by itself, and so does a Linux AppImage. macOS refuses to swap in
+ * an app that is not signed with a paid certificate, and a .deb needs root, so those only hear
+ * about the new version and open the download page.
+ */
+const installsItself = (): boolean => process.platform === 'win32' || (process.platform === 'linux' && !!process.env['APPIMAGE'])
+
+/**
  * Updates come from the GitHub releases named in app-update.yml (written by electron-builder).
  * Nothing is fetched until check() runs, which only happens when the person presses 檢查更新.
  */
@@ -51,14 +59,15 @@ export function createUpdater(log: Log, dataDir: string): Updater {
     error: (m: unknown) => log.error(`updater: ${String(m)}`),
     debug: () => undefined,
   }
-  autoUpdater.autoDownload = true
+  const selfInstalling = installsItself()
+  autoUpdater.autoDownload = selfInstalling
   // Releases carry the full installer; a web installer would fetch a payload that is not checked.
   autoUpdater.disableWebInstaller = true
   // A development run only goes as far as downloading: what it fetched is a test file, not an installer.
-  autoUpdater.autoInstallOnAppQuit = app.isPackaged
+  autoUpdater.autoInstallOnAppQuit = app.isPackaged && selfInstalling
   autoUpdater.on('checking-for-update', state.checking)
   autoUpdater.on('update-not-available', state.latest)
-  autoUpdater.on('update-available', (info) => state.found(info.version))
+  autoUpdater.on('update-available', (info) => (selfInstalling ? state.found(info.version) : state.manual(info.version)))
   autoUpdater.on('download-progress', (p) => state.progress(p.percent))
   autoUpdater.on('update-downloaded', (info) => {
     log.info(`Update ${info.version} downloaded`)
@@ -84,6 +93,7 @@ export function createUpdater(log: Log, dataDir: string): Updater {
       return state.current()
     },
     install: () => {
+      if (state.current().state === 'manual') return void shell.openExternal(`${REPO_URL}/releases/latest`)
       if (state.current().state !== 'ready') return
       if (!app.isPackaged) return log.info('Development run: the downloaded update is not installed')
       log.info('Restarting to install the update')

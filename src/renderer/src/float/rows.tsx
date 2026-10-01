@@ -1,16 +1,16 @@
 import { useState } from 'react'
-import { agentName, resumeCommand, STATUS_LABEL } from '@shared/agents'
-import { ago, clock } from '@shared/format'
-import type { RoutineEntry, TodayEntry } from '@shared/now'
+import { clock, daysAgoLabel, shortDayLabel } from '@shared/format'
 import type { FocusState } from '@shared/ipc'
-import type { AgentSession } from '@shared/types'
+import type { UpcomingEntry } from '@shared/mainView'
+import type { RoutineEntry, TodayEntry } from '@shared/now'
+import type { Item } from '@shared/types'
 import { FocusArea, FocusStart } from '../components/Focus'
-import { CheckIcon } from '../components/Icons'
+import { CheckIcon, TrashIcon } from '../components/Icons'
+import { useAction } from '../components/Toast'
+import { useRemove } from '../components/useRemove'
 
 /** How long the check mark stays visible before the row leaves. */
 const COMPLETE_DELAY_MS = 380
-
-export const project = (cwd: string | null): string | null => cwd?.split(/[\\/]/).filter(Boolean).at(-1) ?? null
 
 export function useCompleting(action: () => Promise<void>): [boolean, () => void] {
   const [checked, setChecked] = useState(false)
@@ -22,52 +22,38 @@ export function useCompleting(action: () => Promise<void>): [boolean, () => void
   return [checked, run]
 }
 
-/** How long "已複製" stays on the button. */
-const COPIED_MS = 1500
+/** Opens the inline editor: rename, move to another day, add a deadline, let go, delete. */
+type OnEdit = (id: string) => void
 
-/** Copies the command that reopens the session, so going back is one paste away. */
-export function ResumeButton({ session }: { session: AgentSession }): React.JSX.Element | null {
-  const [copied, setCopied] = useState(false)
-  const command = resumeCommand(session)
-  if (!command) return null
+function CheckButton({ item, onComplete }: { item: Item; onComplete: () => void }): React.JSX.Element {
   return (
-    <button
-      className="later resume"
-      title={`複製回到這個 session 的指令，貼到終端機就能繼續：\n${command}`}
-      onClick={() => {
-        window.api.copyText(command)
-        setCopied(true)
-        setTimeout(() => setCopied(false), COPIED_MS)
-      }}
-    >
-      {copied ? '已複製' : '回去'}
+    <button className="check" aria-label={`完成：${item.title}`} onClick={onComplete}>
+      <CheckIcon />
     </button>
   )
 }
 
-export function AgentRow({ session, now }: { session: AgentSession; now: number }): React.JSX.Element {
-  const where = project(session.cwd)
+function TitleButton({ item, sub, onEdit }: { item: Item; sub?: React.ReactNode; onEdit: OnEdit }): React.JSX.Element {
   return (
-    <li className={`row agent agent-${session.status}`}>
-      <span className="dot" aria-hidden="true" />
-      <div className="main">
-        <div className="title">{agentName(session.agent)}</div>
-        <div className="sub">
-          <em>{STATUS_LABEL[session.status]}</em>
-          {where && ` · ${where}`}
-        </div>
-        {(session.detail ?? session.title) && <div className="sub detail">{session.detail ?? session.title}</div>}
-      </div>
-      <div className="end">
-        <span>{ago(session.attentionAt ?? session.updatedAt, now)}</span>
-        <span className="agent-acts">
-          <ResumeButton session={session} />
-          <button className="ack" onClick={() => void window.api.acknowledgeAgents([session.id])}>
-            看過了
-          </button>
-        </span>
-      </div>
-    </li>
+    <button className="main open" title="點一下修改" onClick={() => onEdit(item.id)}>
+      <span className="title">{item.title}</span>
+      {sub && <span className="sub">{sub}</span>}
+    </button>
+  )
+}
+
+/** Buttons that float over the row's right edge while it is pointed at, so they never take room from the title. */
+function RowActs({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return <span className="row-acts">{children}</span>
+}
+
+/** Hover-only: deletes at once, with "復原" in the toast for a minute. */
+function DeleteButton({ item }: { item: Item }): React.JSX.Element {
+  const remove = useRemove()
+  return (
+    <button className="later icon" aria-label={`刪除：${item.title}`} title="刪除（1 分鐘內可以復原）" onClick={() => remove(item)}>
+      <TrashIcon />
+    </button>
   )
 }
 
@@ -75,37 +61,89 @@ interface TodayRowProps {
   readonly entry: TodayEntry
   readonly now: number
   readonly focus: FocusState | null
+  readonly onEdit: OnEdit
 }
 
-export function TodayRow({ entry, now, focus }: TodayRowProps): React.JSX.Element {
+export function TodayRow({ entry, now, focus, onEdit }: TodayRowProps): React.JSX.Element {
   const { item, overdueDays, nextStep } = entry
   const [checked, complete] = useCompleting(() => window.api.complete(item.id))
   const timeLabel = item.dueHasTime && item.dueAt !== null && overdueDays === 0 ? clock(item.dueAt) : null
   const timePassed = timeLabel !== null && item.dueAt! < now
+  const sub =
+    overdueDays > 0 ? (
+      <span className="late-text">逾期 {overdueDays} 天</span>
+    ) : nextStep ? (
+      <span className="next">
+        下一步：<b>{nextStep.title}</b>
+      </span>
+    ) : null
   return (
     <li className={`row task${overdueDays > 0 ? ' late' : ''}${checked ? ' checked' : ''}`}>
-      <button className="check" aria-label={`完成：${item.title}`} onClick={complete}>
+      <CheckButton item={item} onComplete={complete} />
+      <TitleButton item={item} sub={sub} onEdit={onEdit} />
+      <div className="end">{timeLabel && <span className={timePassed ? 'late-text' : undefined}>{timeLabel}</span>}</div>
+      <RowActs>
+        {focus?.itemId !== item.id && <FocusStart item={item} nextStep={nextStep} />}
+        <button className="later" onClick={() => void window.api.postpone(item.id)} title="今天不做，移到明天">
+          明天
+        </button>
+        <DeleteButton item={item} />
+      </RowActs>
+      <FocusArea item={item} focus={focus} />
+    </li>
+  )
+}
+
+/** Finished today: struck through, and one click takes it back. */
+export function DoneRow({ item }: { item: Item }): React.JSX.Element {
+  const run = useAction()
+  return (
+    <li className="row task done-row">
+      <button className="check on" aria-label={`取消完成：${item.title}`} onClick={() => run(() => window.api.reopen(item.id))}>
         <CheckIcon />
       </button>
       <div className="main">
-        <div className="title">{item.title}</div>
-        {overdueDays > 0 && <div className="sub late-text">逾期 {overdueDays} 天</div>}
-        {nextStep && (
-          <div className="sub next">
-            下一步：<b>{nextStep.title}</b>
-          </div>
-        )}
+        <span className="title">{item.title}</span>
       </div>
+      <div className="end">{item.doneAt !== null && <span>{clock(item.doneAt)}</span>}</div>
+    </li>
+  )
+}
+
+export function UpcomingRow({ entry, today, onEdit }: { entry: UpcomingEntry; today: string; onEdit: OnEdit }): React.JSX.Element {
+  const { item, day } = entry
+  const [checked, complete] = useCompleting(() => window.api.complete(item.id))
+  return (
+    <li className={`row task${checked ? ' checked' : ''}`}>
+      <CheckButton item={item} onComplete={complete} />
+      <TitleButton item={item} onEdit={onEdit} />
       <div className="end">
-        {timeLabel && <span className={timePassed ? 'late-text' : undefined}>{timeLabel}</span>}
-        <span className="agent-acts">
-          {focus?.itemId !== item.id && <FocusStart item={item} nextStep={nextStep} />}
-          <button className="later" onClick={() => void window.api.postpone(item.id)} title="今天不做，移到明天">
-            明天
-          </button>
+        <span className={item.dueAt !== null ? 'due' : undefined}>
+          {shortDayLabel(day, today)}
+          {item.dueAt !== null && ' 截止'}
         </span>
       </div>
-      <FocusArea item={item} focus={focus} />
+      <RowActs>
+        <DeleteButton item={item} />
+      </RowActs>
+    </li>
+  )
+}
+
+/** An undated idea from 隨手記: plan it for today in one click, or open it to give it a day. */
+export function IdeaRow({ item, now, dayStartHour, onEdit }: { item: Item; now: number; dayStartHour: number; onEdit: OnEdit }): React.JSX.Element {
+  const run = useAction()
+  return (
+    <li className="row idea">
+      <span className="bullet" aria-hidden="true" />
+      <TitleButton item={item} sub={`${daysAgoLabel(item.createdAt, now, dayStartHour)}記下`} onEdit={onEdit} />
+      <div className="end" />
+      <RowActs>
+        <button className="later" onClick={() => run(() => window.api.plan(item.id, 'today'))}>
+          排到今天
+        </button>
+        <DeleteButton item={item} />
+      </RowActs>
     </li>
   )
 }

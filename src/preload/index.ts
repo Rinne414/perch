@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { CHANNELS, type Api, type MainTab, type UpdateStatus } from '@shared/ipc'
+import { CHANNELS, type Api, type FloatTab, type MainTab, type UpdateStatus } from '@shared/ipc'
 
 /** The Api interface types each call; the bridge only forwards arguments. */
 const invoke =
@@ -38,6 +38,22 @@ const api: Api = {
   removeManualEntry: invoke(CHANNELS.removeManualEntry),
   setDayNote: invoke(CHANNELS.setDayNote),
   acknowledgeAgents: invoke(CHANNELS.acknowledgeAgents),
+  getClips: invoke(CHANNELS.getClips),
+  addTextClip: invoke(CHANNELS.addTextClip),
+  addImageClip: invoke(CHANNELS.addImageClip),
+  editClip: invoke(CHANNELS.editClip),
+  keepClip: invoke(CHANNELS.keepClip),
+  copyClip: invoke(CHANNELS.copyClip),
+  showClipInFolder: invoke(CHANNELS.showClipInFolder),
+  clipToTask: invoke(CHANNELS.clipToTask),
+  removeClip: invoke(CHANNELS.removeClip),
+  undoRemoveClip: invoke(CHANNELS.undoRemoveClip),
+  setClipRetention: invoke(CHANNELS.setClipRetention),
+  noteFromAgent: invoke(CHANNELS.noteFromAgent),
+  openProjectFolder: invoke(CHANNELS.openProjectFolder),
+  getProjectDetail: invoke(CHANNELS.getProjectDetail),
+  setProjectHidden: invoke(CHANNELS.setProjectHidden),
+  captureForProject: invoke(CHANNELS.captureForProject),
   dismissRecap: invoke(CHANNELS.dismissRecap),
   getIntegrations: invoke(CHANNELS.getIntegrations),
   setHook: invoke(CHANNELS.setHook),
@@ -74,6 +90,11 @@ const api: Api = {
     const handler = (_e: unknown, tab: MainTab): void => listener(tab)
     ipcRenderer.on(CHANNELS.navigate, handler)
     return () => ipcRenderer.removeListener(CHANNELS.navigate, handler)
+  },
+  onFloatTab: (listener) => {
+    const handler = (_e: unknown, tab: FloatTab): void => listener(tab)
+    ipcRenderer.on(CHANNELS.floatTab, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.floatTab, handler)
   },
 }
 

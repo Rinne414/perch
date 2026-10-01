@@ -3,7 +3,7 @@ import { clock } from '@shared/format'
 import type { BatchTarget } from '@shared/ipc'
 import type { Item } from '@shared/types'
 import { CheckIcon, ChevronIcon } from '../components/Icons'
-import { useAction, useToast } from './Toast'
+import { useAction, useToast } from '../components/Toast'
 
 function doneLabel(items: readonly Item[]): string {
   const dropped = items.filter((i) => i.droppedAt !== null).length

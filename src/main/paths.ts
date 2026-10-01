@@ -15,6 +15,8 @@ export function dataDir(): string {
 }
 
 export const backupsDir = (): string => join(dataDir(), 'backups')
+/** 暫存 pictures, one folder per month. */
+export const clipsDir = (): string => join(dataDir(), 'clips')
 export const logsDir = (): string => join(dataDir(), 'logs')
 
 /**

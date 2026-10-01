@@ -4,10 +4,10 @@ import type { MainPayload } from '@shared/ipc'
 import type { Item } from '@shared/types'
 import { CaptureField } from '../components/CaptureField'
 import { ChevronIcon } from '../components/Icons'
-import { DueEditor } from './DueEditor'
+import { DueEditor } from '../components/DueEditor'
 import { sourceLabel, stepCount, TaskRow } from './TaskRow'
-import { useAction } from './Toast'
-import { useRemove } from './useRemove'
+import { useAction } from '../components/Toast'
+import { useRemove } from '../components/useRemove'
 
 interface Props {
   readonly payload: MainPayload

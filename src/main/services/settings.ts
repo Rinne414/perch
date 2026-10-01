@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { DEFAULT_RETENTION_DAYS } from '@shared/clips'
 import type { GlassLevel } from '@shared/ipc'
 import { getSetting, setSetting } from '../db/settings'
 
@@ -12,6 +13,8 @@ export interface AppSettings {
   readonly glass: GlassLevel
   /** An Obsidian vault (or a folder in one) that gets a note per day in its Perch/ folder; null when off. */
   readonly obsidianDir: string | null
+  /** 暫存 that is not kept is cleared after this many days unused; null = never. */
+  readonly clipRetentionDays: number | null
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -21,6 +24,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   captureShortcut: 'Control+Alt+N',
   glass: 'mid',
   obsidianDir: null,
+  clipRetentionDays: DEFAULT_RETENTION_DAYS,
 }
 
 const KEY = 'app'

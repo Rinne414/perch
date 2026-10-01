@@ -25,6 +25,7 @@ interface ItemRow {
   notified_at: number | null
   source: string
   schedule: string | null
+  project: string | null
 }
 
 const toItem = (r: ItemRow): Item => ({
@@ -48,6 +49,7 @@ const toItem = (r: ItemRow): Item => ({
   notifiedAt: r.notified_at,
   source: r.source,
   schedule: r.schedule ? (JSON.parse(r.schedule) as RoutineSchedule) : null,
+  project: r.project,
 })
 
 /** Patchable fields and their columns. Only these names ever reach SQL. */
@@ -96,8 +98,8 @@ export function createItem(db: DatabaseSync, input: NewItem, now: number): Item 
       : 0
     db.prepare(
       `INSERT INTO items (id, kind, title, notes, parent_id, sort_order, priority, created_at,
-         updated_at, due_at, due_has_time, planned_for, interval_days, last_done_at, source, schedule)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         updated_at, due_at, due_has_time, planned_for, interval_days, last_done_at, source, schedule, project)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       input.kind,
@@ -115,6 +117,7 @@ export function createItem(db: DatabaseSync, input: NewItem, now: number): Item 
       input.lastDoneAt ?? null,
       source,
       input.schedule ? JSON.stringify(input.schedule) : null,
+      input.project ?? null,
     )
     if (!parentId) {
       appendEvent(db, { at: now, type: 'item.created', title, itemId: id, source })
@@ -226,6 +229,25 @@ export function listAllItems(db: DatabaseSync): Item[] {
 }
 
 /** Open tasks, ideas and steps, plus every routine. */
+/** Open top-level tasks and ideas that belong to a project. */
+const OPEN_PROJECT_WORK = "project IS NOT NULL AND done_at IS NULL AND parent_id IS NULL AND kind <> 'routine'"
+
+/** How many open tasks and ideas each project folder has. */
+export function countOpenByProject(db: DatabaseSync): Map<string, number> {
+  const rows = db
+    .prepare(`SELECT project, COUNT(*) AS n FROM items WHERE ${OPEN_PROJECT_WORK} GROUP BY project`)
+    .all() as { project: string; n: number }[]
+  return new Map(rows.map((r) => [r.project, r.n]))
+}
+
+/** One project's open tasks and ideas, newest first. */
+export function listOpenItemsOf(db: DatabaseSync, project: string): Item[] {
+  const rows = db
+    .prepare(`SELECT * FROM items WHERE ${OPEN_PROJECT_WORK} AND project = ? ORDER BY created_at DESC`)
+    .all(project) as unknown as ItemRow[]
+  return rows.map(toItem)
+}
+
 export function listOpenItems(db: DatabaseSync): Item[] {
   const rows = db
     .prepare('SELECT * FROM items WHERE done_at IS NULL ORDER BY sort_order, created_at')

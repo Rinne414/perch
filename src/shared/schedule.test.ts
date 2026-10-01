@@ -35,6 +35,7 @@ function routine(schedule: RoutineSchedule | null, over: Partial<Item> = {}): It
     notifiedAt: null,
     source: 'user',
     schedule,
+    project: null,
     ...over,
   }
 }

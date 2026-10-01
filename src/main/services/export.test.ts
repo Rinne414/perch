@@ -7,12 +7,14 @@ import { openDatabase } from '../db/connection'
 import { applyAgentEvent } from '../db/agents'
 import { completeItem, createItem } from '../db/items'
 import { addManualEntry } from './calendar'
+import { addImageClip, addTextClip, editClip } from './clips'
 import { collectExport, toMarkdown, writeExport, type ExportData } from './export'
 import { createRoutine } from './manage'
 import { DEFAULT_SETTINGS } from './settings'
 
 const at = (m: number, d: number, h: number, min = 0): number => new Date(2026, m - 1, d, h, min).getTime()
 const NOW = at(9, 30, 9, 15)
+const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13])
 
 let db: DatabaseSync
 let dir: string
@@ -71,6 +73,24 @@ describe('export', () => {
     empty.close()
     expect(md).toContain('## 還沒做完\n\n（沒有）')
     expect(md.endsWith('## 紀錄\n')).toBe(true)
+  })
+
+  test('暫存 goes along: the JSON lists it, its pictures are copied next to the Markdown, which shows them', () => {
+    const clipsDir = join(dir, 'clips')
+    addTextClip(db, '房東的新帳號 #家', NOW)
+    const picture = addImageClip(db, clipsDir, PNG, null, NOW)
+    editClip(db, picture.id, '浮窗的參考圖', NOW)
+
+    const { markdown, images } = writeExport(db, join(dir, 'out'), '0.1.0', DEFAULT_SETTINGS, NOW, clipsDir)
+    const name = picture.file!.split('/').at(-1)!
+
+    expect(collectExport(db, '0.1.0', NOW).clips).toHaveLength(2)
+    expect(images).toBe(join(dir, 'out', 'perch-export-2026-09-30-0915-clips'))
+    expect(readFileSync(join(images!, name))).toEqual(Buffer.from(PNG))
+    const md = readFileSync(markdown, 'utf8')
+    expect(md).toContain('## 暫存\n\n')
+    expect(md).toContain(`- ![浮窗的參考圖](perch-export-2026-09-30-0915-clips/${name})`)
+    expect(md).toContain('- 房東的新帳號 #家')
   })
 
   test('writes both files, and the JSON reads back the same', () => {

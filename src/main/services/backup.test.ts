@@ -66,10 +66,13 @@ describe('backups', () => {
 describe('opening a database', () => {
   test('runs the upgrade hook only for an existing database that is about to change', () => {
     const calls: string[] = []
-    // A database from the version before the last migration.
+    // A database from before the day notes, item projects and clips existed.
     const path = join(dir, 'old.db')
     const old = openDatabase(path)
+    old.exec('DROP TABLE clips')
     old.exec('DROP TABLE day_notes')
+    old.exec('DROP INDEX items_project')
+    old.exec('ALTER TABLE items DROP COLUMN project')
     old.exec('PRAGMA user_version = 3')
     old.close()
 

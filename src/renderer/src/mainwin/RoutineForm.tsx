@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { normaliseTime } from '@shared/schedule'
+import { DEFAULT_REMIND_MINUTES, normaliseTime } from '@shared/schedule'
 import type { RoutineSchedule, ScheduleSlot } from '@shared/types'
 
 const MAX_DAYS = 3650
@@ -10,7 +10,7 @@ const REMINDERS: readonly { minutes: number | null; label: string }[] = [
   { minutes: 30, label: '30 分鐘前' },
   { minutes: 60, label: '1 小時前' },
 ]
-const DEFAULT_REMIND = 30
+
 const DEFAULT_SLOT = { start: '09:00', end: '10:00' }
 
 type Kind = 'schedule' | 'interval' | 'tracker'
@@ -90,7 +90,7 @@ export function RoutineForm({ initial, submitLabel, onSubmit, onCancel }: Props)
   const [kind, setKind] = useState<Kind>(kindOf(initial))
   const [days, setDays] = useState(String(initial?.intervalDays ?? 7))
   const [times, setTimes] = useState<Times>(timesOf(initial?.schedule))
-  const [remind, setRemind] = useState<number | null>(initial?.schedule ? initial.schedule.remindMinutes : DEFAULT_REMIND)
+  const [remind, setRemind] = useState<number | null>(initial?.schedule ? initial.schedule.remindMinutes : DEFAULT_REMIND_MINUTES)
 
   const n = Number(days)
   const slots = kind === 'schedule' ? slotsFrom(times) : null

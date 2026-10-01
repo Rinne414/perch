@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { parseCapture } from '@shared/capture'
 import { clock, monthDay } from '@shared/format'
+import { DEFAULT_REMIND_MINUTES } from '@shared/schedule'
+import { parseWeekly, weeklyLabel } from '@shared/weekly'
 import type { CaptureTarget } from '@shared/ipc'
 import type { Item } from '@shared/types'
 import './capture-field.css'
@@ -23,9 +25,23 @@ export function CaptureField(props: Props): React.JSX.Element {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  const weekly = useMemo(() => (text.trim() ? parseWeekly(text) : null), [text])
   const parsed = useMemo(() => (text.trim() ? parseCapture(text, Date.now(), dayStartHour) : null), [text, dayStartHour])
   const dateLabel =
     parsed?.dueAt != null ? `${monthDay(parsed.dueAt)}${parsed.dueHasTime ? ` ${clock(parsed.dueAt)}` : ''}` : null
+  const hint =
+    error ??
+    (weekly ? (
+      <>
+        讀到<span className="capture-date">固定行程</span>：{weeklyLabel(weekly.slots)}「{weekly.title}」，開始前 {DEFAULT_REMIND_MINUTES} 分鐘提醒 · Enter 建立
+      </>
+    ) : dateLabel ? (
+      <>
+        <span className="capture-date">{dateLabel}</span> 到期 · Enter 儲存
+      </>
+    ) : (
+      hintFor(target)
+    ))
 
   const save = (): void => {
     if (!text.trim()) return
@@ -60,7 +76,7 @@ export function CaptureField(props: Props): React.JSX.Element {
       />
       {text.trim() && (
         <p className="capture-hint" aria-live="polite">
-          {error ?? (dateLabel ? <><span className="capture-date">{dateLabel}</span> 到期 · Enter 儲存</> : hintFor(target))}
+          {hint}
         </p>
       )}
     </div>

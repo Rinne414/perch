@@ -238,26 +238,6 @@
   opacity: 1;
 }
 
-/* Buttons */
-.mw .act {
-  border: 0;
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 12px;
-  background: none;
-  color: var(--dim);
-  transition: background-color var(--fast), color var(--fast);
-}
-
-.mw .act:hover {
-  background: var(--field);
-  color: var(--text);
-}
-
-.mw .act.danger {
-  color: var(--late);
-}
-
 /* The float's hover-only button style, inside the main window's action group. */
 .mw .acts .focus-start {
   opacity: 1;
@@ -274,78 +254,6 @@
 
 .mw .acts .focus-start:hover {
   background: var(--field);
-}
-
-.mw .act.icon {
-  padding: 2px 4px;
-  display: grid;
-  place-items: center;
-}
-
-.mw .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  padding: 5px 12px;
-  font-size: 12.5px;
-  background: var(--field);
-  color: var(--text);
-  white-space: nowrap;
-  transition: background-color var(--fast), opacity var(--fast);
-}
-
-.mw .btn:hover {
-  background: var(--press);
-}
-
-.mw .btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.mw .btn.primary {
-  background: rgba(255, 255, 255, 0.9);
-  color: #161a24;
-  font-weight: 500;
-}
-
-.mw .btn.primary:hover:not(:disabled) {
-  background: #fff;
-}
-
-.mw .btn.danger {
-  background: rgba(255, 138, 138, 0.14);
-  color: var(--late);
-  border-color: rgba(255, 138, 138, 0.35);
-}
-
-.mw .btn.danger:hover {
-  background: rgba(255, 138, 138, 0.24);
-}
-
-.mw .btn.ghost {
-  background: none;
-  color: var(--dim);
-}
-
-.mw .btn.ghost:hover {
-  color: var(--text);
-}
-
-.mw .link {
-  border: 0;
-  background: none;
-  padding: 0;
-  color: var(--info);
-  font-size: 12.5px;
-  text-align: left;
-  justify-self: start;
-}
-
-.mw .link:hover {
-  text-decoration: underline;
 }
 
 .mw .more {
@@ -371,62 +279,6 @@
 
 .mw .old ul {
   opacity: 0.8;
-}
-
-/* Fields and chips */
-.mw .field {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 10px;
-  background: var(--field);
-  color: var(--text);
-  font: inherit;
-  user-select: text;
-  transition: border-color var(--fast);
-}
-
-.mw .field::placeholder {
-  color: var(--faint);
-}
-
-.mw .field:focus {
-  outline: none;
-  border-color: rgba(157, 184, 255, 0.7);
-}
-
-.mw .field.num {
-  width: 56px;
-  text-align: center;
-  flex: none;
-}
-
-.mw .chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.mw .chip {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 2px 10px;
-  font-size: 12px;
-  background: none;
-  color: var(--dim);
-  transition: background-color var(--fast), color var(--fast);
-}
-
-.mw .chip:hover {
-  color: var(--text);
-  background: var(--hover);
-}
-
-.mw .chip.on {
-  background: var(--press);
-  color: var(--text);
-  border-color: transparent;
 }
 
 /* Inline editors under a row */
@@ -499,6 +351,11 @@
   margin-right: 4px;
 }
 
+/* The undo toast centres on the list, not on the whole window with its sidebar. */
+.mw + .toast-slot {
+  left: calc(50% + 84px);
+}
+
 /* Segmented choice (淡 / 中 / 濃, routine types) */
 .mw .seg {
   display: inline-flex;
@@ -548,50 +405,6 @@
   color: var(--text);
 }
 
-/* Undo toast */
-.mw-toast-slot {
-  position: fixed;
-  left: calc(50% + 84px);
-  bottom: 22px;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.mw-toast {
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 10px 8px 14px;
-  border-radius: 10px;
-  background: rgba(40, 44, 58, 0.94);
-  border: 1px solid var(--line);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  font-size: 12.5px;
-  white-space: nowrap;
-  animation: mw-toast 180ms ease-out;
-}
-
-.mw-toast .btn {
-  border: 0;
-  border-radius: 6px;
-  padding: 3px 10px;
-  font-size: 12.5px;
-  background: var(--field);
-  color: var(--text);
-}
-
-.mw-toast .btn:hover {
-  background: var(--press);
-}
-
-@keyframes mw-toast {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-
 /* Narrow window: the sidebar folds to icons so the list keeps room next to the detail panel. */
 @media (max-width: 900px) {
   .mw {
@@ -634,7 +447,7 @@
     padding-inline: 18px;
   }
 
-  .mw-toast-slot {
+  .mw + .toast-slot {
     left: calc(50% + 28px);
   }
 }

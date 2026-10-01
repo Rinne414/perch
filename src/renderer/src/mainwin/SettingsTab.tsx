@@ -2,7 +2,8 @@ import { Fragment, useCallback, useEffect, useState } from 'react'
 import { agentName } from '@shared/agents'
 import type { AgentIntegration, HookState, IntegrationsPayload, SourceUsage, StatuslineInfo } from '@shared/integrations'
 import type { AppInfo, GlassLevel } from '@shared/ipc'
-import { useToast } from './Toast'
+import { useToast } from '../components/Toast'
+import { AddCommandSection } from './AddCommand'
 import { DataSection, ShortcutRow, UpdateSection } from './Upkeep'
 import './settings.css'
 
@@ -350,6 +351,8 @@ export function SettingsTab(): React.JSX.Element {
           ))}
         </div>
       </section>
+
+      {data && <AddCommandSection command={data.addCommand} />}
 
       <section className="set" aria-labelledby="set-sources">
         <div className="set-head">

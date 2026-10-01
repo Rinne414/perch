@@ -42,6 +42,22 @@ export function dayLabel(key: string, today: string): string {
   return `${date} ${weekday}`
 }
 
+/** "09:05" today, "昨天 21:40", then "10/7": when something happened, in a narrow column. */
+export function whenLabel(ms: number, now: number, dayStartHour: number): string {
+  const days = daysBetween(dayKey(ms, dayStartHour), dayKey(now, dayStartHour))
+  if (days <= 0) return clock(ms)
+  if (days === 1) return `昨天 ${clock(ms)}`
+  return monthDay(ms)
+}
+
+/** "明天", "週六" within the coming week, else "10/8": short enough for a row in the float. */
+export function shortDayLabel(key: string, today: string): string {
+  const diff = daysBetween(today, key)
+  if (Math.abs(diff) <= 1) return dayLabel(key, today)
+  const { date, weekday } = dayTitle(key)
+  return diff > 1 && diff < 7 ? weekday : date
+}
+
 /** "3 天前" style age of a timestamp in whole days, using the app's day boundary. */
 export function daysAgoLabel(ms: number, now: number, dayStartHour: number): string {
   const days = daysBetween(dayKey(ms, dayStartHour), dayKey(now, dayStartHour))

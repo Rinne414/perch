@@ -23,13 +23,14 @@ import {
   type WindowAction,
 } from '@shared/ipc'
 import type { AppContext } from './context'
+import { registerClipHandlers } from './ipcClips'
 import { acknowledgeAgent } from './db/agents'
 import { completeItem, dropItem, reopenItem } from './db/items'
 import { clearAgentData } from './db/sources'
 import { transaction } from './db/transaction'
 import { canOpenAtLogin, isOpenAtLogin, setOpenAtLogin } from './loginItem'
 import { readQuota } from '../integrations/quota'
-import { backupsDir, dataDir } from './paths'
+import { backupsDir, clipsDir, dataDir } from './paths'
 import { listBackups } from './services/backup'
 import { writeExport } from './services/export'
 import { backfillObsidian } from './services/obsidian'
@@ -51,6 +52,8 @@ import {
 } from './services/manage'
 import { addManualEntry, captureOn, dayView, monthMarks, removeManualEntry } from './services/calendar'
 import { createFocus, type Focus } from './services/focus'
+import { noteFromSession } from './services/agentNotes'
+import { captureForProject, projectDetail, projectFolder, setProjectHidden } from './services/projects'
 import { captureText, dismissRecap, getNowPayload, postponeItem } from './services/now'
 import { recordRoutine, removeRoutineRecord, routineHistory } from './services/routines'
 import { updateSettings } from './services/settings'
@@ -73,6 +76,14 @@ function id(v: unknown): string {
 
 function text(v: unknown): string {
   if (typeof v !== 'string' || !v.trim() || v.length > MAX_TEXT) throw new Error('Text must be 1-2000 characters')
+  return v
+}
+
+const MAX_PATH = 1024
+
+/** A folder path as a project key; whether an agent worked there is checked where it is used. */
+function path(v: unknown): string {
+  if (typeof v !== 'string' || !v || v.length > MAX_PATH) throw new Error('Invalid folder')
   return v
 }
 
@@ -197,6 +208,20 @@ function registerItemHandlers(ctx: AppContext, focus: Focus): void {
     const now = Date.now()
     transaction(db, () => ids(list).forEach((i) => acknowledgeAgent(db, i, now)))
   })
+  handle(CHANNELS.noteFromAgent, (sessionId: unknown, t: unknown, plan: unknown) =>
+    noteFromSession(db, text(sessionId), text(t), oneOf<PlanTarget>(PLANS, plan, 'plan'), Date.now(), ctx.settings().dayStartHour),
+  )
+  ipcMain.handle(CHANNELS.openProjectFolder, async (_e, cwd: unknown) => {
+    const folder = projectFolder(db, cwd)
+    if (!folder) return false
+    // openPath resolves to an error message, or '' when the folder opened.
+    return (await shell.openPath(folder)) === ''
+  })
+  ipcMain.handle(CHANNELS.getProjectDetail, (_e, cwd: unknown) => projectDetail(db, path(cwd)))
+  handle(CHANNELS.setProjectHidden, (cwd: unknown, hidden: unknown) => setProjectHidden(db, path(cwd), hidden === true))
+  handle(CHANNELS.captureForProject, (t: unknown, cwd: unknown) =>
+    captureForProject(db, text(t), path(cwd), Date.now(), ctx.settings()),
+  )
   handle(CHANNELS.dismissRecap, () => dismissRecap(db, Date.now(), ctx.settings()))
 }
 
@@ -226,6 +251,7 @@ const appInfoOf = (ctx: AppContext): AppInfo => ({
   captureShortcut: ctx.settings().captureShortcut,
   lastBackupAt: listBackups(backupsDir())[0]?.at ?? null,
   obsidianDir: ctx.settings().obsidianDir,
+  clipRetentionDays: ctx.settings().clipRetentionDays,
 })
 
 function registerAppHandlers(ctx: AppContext): void {
@@ -292,10 +318,11 @@ function registerUpkeepHandlers(ctx: AppContext): void {
   ipcMain.handle(CHANNELS.exportData, async (e): Promise<ExportResult | null> => {
     const target = await pickFolder(BrowserWindow.fromWebContents(e.sender), EXPORT_PICK)
     if (!target) return null
-    const { json, markdown } = writeExport(ctx.db, target.folder, app.getVersion(), ctx.settings(), Date.now())
+    const { json, markdown, images } = writeExport(ctx.db, target.folder, app.getVersion(), ctx.settings(), Date.now(), clipsDir())
     ctx.log.info('Exported all data')
     if (target.picked) shell.showItemInFolder(markdown)
-    return { folder: target.folder, files: [basename(json), basename(markdown)] }
+    const files = [basename(json), basename(markdown), ...(images ? [`${basename(images)}/`] : [])]
+    return { folder: target.folder, files }
   })
   ipcMain.handle(CHANNELS.pickObsidianFolder, async (e) => {
     const target = await pickFolder(BrowserWindow.fromWebContents(e.sender), OBSIDIAN_PICK)
@@ -347,5 +374,6 @@ export function registerIpc(ctx: AppContext): void {
   registerIntegrationHandlers(ctx)
   registerAppHandlers(ctx)
   registerUpkeepHandlers(ctx)
+  registerClipHandlers(ctx, () => appInfoOf(ctx))
   registerWindowHandlers(ctx)
 }

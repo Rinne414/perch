@@ -4,7 +4,7 @@ import { liveWindows, type QuotaSnapshot } from '@shared/quota'
 import { addDays, dayKey, dayStart, moveToDay } from '@shared/day'
 import type { BatchTarget, FocusState, MainPayload, PlanTarget } from '@shared/ipc'
 import { buildMainView } from '@shared/mainView'
-import { isRunning, needsAttention } from '@shared/now'
+import { isRunning, isSettled, needsAttention } from '@shared/now'
 import type { Item, ItemPatch, RoutineSchedule } from '@shared/types'
 import { listAgentSessions } from '../db/agents'
 import {
@@ -21,6 +21,7 @@ import {
   type ItemSnapshot,
 } from '../db/items'
 import { transaction } from '../db/transaction'
+import { listProjects } from './projects'
 import type { AppSettings } from './settings'
 
 const AGENT_WINDOW_MS = 7 * 86_400_000
@@ -47,7 +48,7 @@ export function getMainPayload(
   const attention = sessions.filter(needsAttention).sort((a, b) => b.attentionAt! - a.attentionAt!)
   const running = sessions.filter((s) => isRunning(s, now))
   const recentAgents = sessions
-    .filter((s) => !needsAttention(s) && !isRunning(s, now))
+    .filter((s) => isSettled(s, now))
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, RECENT_AGENTS)
   const live = liveWindows(quota, now)
@@ -60,6 +61,7 @@ export function getMainPayload(
     staleDays: settings.staleDays,
     focus,
     quota: quota && live.length ? { ...quota, windows: live } : null,
+    projects: listProjects(db),
   }
 }
 

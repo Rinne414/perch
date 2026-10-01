@@ -1,3 +1,4 @@
+import './components/controls.css'
 import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { CaptureView } from './capture/CaptureView'

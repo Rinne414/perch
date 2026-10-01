@@ -77,6 +77,28 @@ const MIGRATIONS: readonly string[] = [
     updated_at INTEGER NOT NULL
   );
   `,
+  // The project (the folder agents work in) a task or idea belongs to, when it has one.
+  `
+  ALTER TABLE items ADD COLUMN project TEXT;
+  CREATE INDEX items_project ON items (project) WHERE project IS NOT NULL;
+  `,
+  // 暫存: pasted text, links and images. Image bytes live in files under <data>/clips; tags are JSON.
+  `
+  CREATE TABLE clips (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('text', 'image', 'link')),
+    text TEXT NOT NULL DEFAULT '',
+    file TEXT,
+    width INTEGER,
+    height INTEGER,
+    bytes INTEGER,
+    tags TEXT NOT NULL DEFAULT '[]',
+    kept INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    used_at INTEGER NOT NULL
+  );
+  CREATE INDEX clips_used ON clips (kept, used_at);
+  `,
 ]
 
 const userVersion = (db: DatabaseSync): number =>

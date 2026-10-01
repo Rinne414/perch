@@ -2,6 +2,7 @@ import { sep } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import type { AgentIntegration, IntegrationsPayload, StatuslineInfo } from '@shared/integrations'
 import {
+  addCommandLine,
   INSTALLABLE,
   install,
   installState,
@@ -46,6 +47,7 @@ export function integrationsPayload(db: DatabaseSync, setup: HookSetup): Integra
     agents: INSTALLABLE.map((agent) => integrationOf(agent, setup)),
     sources: agentSourceUsage(db),
     statusline: currentStatusline(setup),
+    addCommand: addCommandLine(setup, '明天 確認 macOS 版能打開'),
   }
 }
 

@@ -8,8 +8,11 @@ import { transaction } from './db/transaction'
 import { notify } from './notify'
 import { agentAlert, agentsToNotify, dueAlert, dueItemsToNotify } from './services/reminders'
 import { scheduleAlerts } from './services/scheduleAlerts'
+import { clearExpiredClips } from './services/clips'
+import { clipsDir } from './paths'
 
 const TICK_MS = 20_000
+const HOUR_MS = 3_600_000
 const AGENT_LOOKBACK_MS = 2 * 3_600_000
 
 /**
@@ -20,6 +23,7 @@ export function startScheduler(ctx: AppContext, beforeTick: () => void = () => u
   const announced = new Map<string, number>()
   let quotaSeen = ''
   let lastDay = ''
+  let clipsCleared = 0
 
   const tick = (): void => {
     beforeTick()
@@ -32,11 +36,11 @@ export function startScheduler(ctx: AppContext, beforeTick: () => void = () => u
     const alert = dueAlert(due)
     if (alert) {
       transaction(db, () => due.forEach((i) => updateItem(db, i.id, { notifiedAt: now }, now)))
-      notify(alert, ctx.showFloat)
+      notify(alert, () => ctx.showFloat('todo'))
       changed = true
     }
 
-    for (const alert of scheduleAlerts(db, now)) notify(alert, ctx.showFloat)
+    for (const alert of scheduleAlerts(db, now)) notify(alert, () => ctx.showFloat('todo'))
 
     // New numbers from Claude Code's status line, a window that reset, or the 5-hour alert coming or going.
     const quota = readQuota(ctx.hookSetup.inboxDir, 'claude-code')
@@ -54,7 +58,17 @@ export function startScheduler(ctx: AppContext, beforeTick: () => void = () => u
 
     for (const s of agentsToNotify(listAgentSessions(db, now - AGENT_LOOKBACK_MS), announced, now)) {
       announced.set(s.id, s.attentionAt!)
-      notify(agentAlert(s), ctx.showFloat)
+      notify(agentAlert(s), () => ctx.showFloat('agents'))
+    }
+
+    // 暫存 left unused for the chosen days goes, once an hour.
+    if (now - clipsCleared >= HOUR_MS) {
+      clipsCleared = now
+      try {
+        if (clearExpiredClips(db, clipsDir(), now, settings.clipRetentionDays) > 0) changed = true
+      } catch (err) {
+        ctx.log.error('Clearing old clips failed', err)
+      }
     }
 
     if (changed) ctx.broadcast()

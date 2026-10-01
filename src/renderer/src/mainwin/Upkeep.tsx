@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { RETENTION_CHOICES } from '@shared/clips'
 import { dayKey } from '@shared/day'
 import { clock, dayLabel } from '@shared/format'
 import type { AppInfo, UpdateStatus } from '@shared/ipc'
 import { acceleratorOf, isModifierCode, shortcutLabel } from '@shared/shortcut'
-import { useToast } from './Toast'
+import { useToast } from '../components/Toast'
 
 type ShortcutMode = { readonly kind: 'idle' } | { readonly kind: 'recording'; readonly rejected: boolean } | { readonly kind: 'taken'; readonly tried: string }
 
@@ -132,9 +133,39 @@ export function DataSection({ info, onInfo }: { info: AppInfo | null; onInfo: (n
             {exporting ? '匯出中…' : '匯出…'}
           </button>
         </div>
+        <ClipRetentionRow info={info} onInfo={onInfo} />
         <ObsidianRow info={info} onInfo={onInfo} />
       </div>
     </section>
+  )
+}
+
+/** 設定 → 資料 → 暫存: how long a clip nobody kept stays after its last use. */
+function ClipRetentionRow({ info, onInfo }: { info: AppInfo | null; onInfo: (next: AppInfo) => void }): React.JSX.Element {
+  const show = useToast()
+  const current = info?.clipRetentionDays
+  return (
+    <div className="r general">
+      <span className="name">暫存</span>
+      <span className="sub">沒按「保留」的，多久沒用到就清掉（複製、改說明都算用到）</span>
+      <div className="seg" role="group" aria-label="暫存保留多久">
+        {RETENTION_CHOICES.map((days) => (
+          <button
+            key={String(days)}
+            className={current === days ? 'on' : undefined}
+            aria-pressed={current === days}
+            onClick={() =>
+              window.api
+                .setClipRetention(days)
+                .then(onInfo)
+                .catch(() => show('沒有存成功，再試一次看看'))
+            }
+          >
+            {days === null ? '永不' : `${days} 天`}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 

@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
+import type { FloatTab } from '@shared/ipc'
 import { getSetting, setSetting } from '../db/settings'
 import { onScreen, watchBounds, type SavedBounds } from './bounds'
 import { loadView, preloadPath } from './load'
@@ -21,7 +22,7 @@ export function saveFloatPinned(db: DatabaseSync, pinned: boolean): void {
   setSetting(db, KEY, { ...readFloatState(db), pinned })
 }
 
-export function createFloatWindow(db: DatabaseSync): BrowserWindow {
+export function createFloatWindow(db: DatabaseSync, tab?: FloatTab): BrowserWindow {
   const state = readFloatState(db)
   const win = new BrowserWindow({
     ...onScreen(state.bounds),
@@ -38,6 +39,6 @@ export function createFloatWindow(db: DatabaseSync): BrowserWindow {
   win.setMenuBarVisibility(false)
   win.once('ready-to-show', () => win.show())
   watchBounds(win, (bounds) => setSetting(db, KEY, { ...readFloatState(db), bounds }))
-  void loadView(win, 'float')
+  void loadView(win, 'float', tab ? { tab } : {})
   return win
 }

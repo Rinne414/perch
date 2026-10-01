@@ -5,9 +5,11 @@ import type { Item } from '@shared/types'
 import {
   AgentIcon,
   CalendarIcon,
+  FolderIcon,
   NoteIcon,
   RoutineIcon,
   SettingsIcon,
+  StashIcon,
   TodayIcon,
   WindowIcon,
 } from '../components/Icons'
@@ -15,10 +17,14 @@ import { AgentsTab } from './AgentsTab'
 import { CalendarTab } from './CalendarTab'
 import { InboxTab } from './InboxTab'
 import { ItemDetail } from './ItemDetail'
+import { ClipPanel } from './ClipPanel'
+import { ProjectPanel } from './ProjectPanel'
+import { ProjectsTab } from './ProjectsTab'
+import { StashTab } from './StashTab'
 import { RoutinesTab } from './RoutinesTab'
 import { SettingsTab } from './SettingsTab'
 import { TodayTab } from './TodayTab'
-import { ToastProvider } from './Toast'
+import { ToastProvider } from '../components/Toast'
 import { useMain } from './useMain'
 import './main.css'
 
@@ -30,7 +36,9 @@ interface TabInfo {
 const TABS: Readonly<Record<MainTab, TabInfo>> = {
   today: { label: '今天', icon: TodayIcon },
   inbox: { label: '隨手記', icon: NoteIcon },
+  stash: { label: '暫存', icon: StashIcon },
   agents: { label: 'Agent', icon: AgentIcon },
+  projects: { label: '專案', icon: ({ size = 16 }) => <FolderIcon size={size} /> },
   routines: { label: '例行', icon: RoutineIcon },
   calendar: { label: '日曆', icon: CalendarIcon },
   settings: { label: '設定', icon: SettingsIcon },
@@ -126,8 +134,12 @@ function Content({ tab, payload, at, selected, onOpen }: {
       return <TodayTab payload={payload} at={at} selected={selected} onOpen={onOpen} />
     case 'inbox':
       return <InboxTab payload={payload} at={at} selected={selected} onOpen={onOpen} />
+    case 'stash':
+      return <StashTab at={at} dayStartHour={payload.dayStartHour} selected={selected} onOpen={onOpen} />
     case 'agents':
       return <AgentsTab payload={payload} at={at} />
+    case 'projects':
+      return <ProjectsTab payload={payload} at={at} selected={selected} onOpen={onOpen} />
     case 'routines':
       return <RoutinesTab payload={payload} at={at} />
     case 'settings':
@@ -156,6 +168,11 @@ export function MainWindow(): React.JSX.Element {
   }, [])
 
   const detail = payload && (tab === 'today' || tab === 'inbox') ? findItem(payload, selected) : null
+  const project =
+    payload && tab === 'projects' && selected && payload.projects.some((p) => p.cwd === selected) ? selected : null
+  const clip = payload && tab === 'stash' ? selected : null
+  const side = detail || project || clip
+  const close = (): void => setSelected(null)
 
   return (
     <ToastProvider>
@@ -163,14 +180,14 @@ export function MainWindow(): React.JSX.Element {
         <Sidebar tab={tab} payload={payload} onPick={pick} />
         <div className="mw-body">
           <TitleBar />
-          <div className={`mw-split${detail ? ' with-detail' : ''}`}>
+          <div className={`mw-split${side ? ' with-detail' : ''}`}>
             <main className="mw-pane" key={tab}>
               {payload ? (
                 <Content
                   tab={tab}
                   payload={payload}
                   at={at}
-                  selected={detail ? selected : null}
+                  selected={side ? selected : null}
                   onOpen={(id) => setSelected(id === selected ? null : id)}
                 />
               ) : (
@@ -184,9 +201,13 @@ export function MainWindow(): React.JSX.Element {
                 steps={payload.view.steps[detail.id] ?? []}
                 day={payload.view.day}
                 dayStartHour={payload.dayStartHour}
-                onClose={() => setSelected(null)}
+                onClose={close}
               />
             )}
+            {project && payload && (
+              <ProjectPanel key={project} cwd={project} at={at} dayStartHour={payload.dayStartHour} onClose={close} />
+            )}
+            {clip && payload && <ClipPanel key={clip} id={clip} at={at} dayStartHour={payload.dayStartHour} onClose={close} />}
           </div>
         </div>
       </div>

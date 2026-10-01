@@ -36,6 +36,10 @@ export type Config = Record<string, unknown>
 const commandLine = (s: HookSetup, agent: string): string =>
   `node "${s.cliPath}" hook ${agent} --inbox "${s.inboxDir}"`
 
+/** What an agent runs to leave the person something to do (`perch-hook add`); run in its project folder. */
+export const addCommandLine = (s: HookSetup, text: string): string =>
+  `node "${s.cliPath}" add "${text}" --inbox "${s.inboxDir}"`
+
 const isOurs = (h: Handler): boolean => hasOurMarker(JSON.stringify(h))
 
 /** A copy of the config without any of our handlers; everything else is left exactly as it was. */

@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react'
-import { addDays, dayKey } from '@shared/day'
-import { clock, dayLabel, monthDay } from '@shared/format'
-import type { PlanTarget } from '@shared/ipc'
+import { useState } from 'react'
+import { monthDay } from '@shared/format'
 import type { Item } from '@shared/types'
 import { CheckIcon, TrashIcon, WindowIcon } from '../components/Icons'
-import { DueEditor } from './DueEditor'
+import { Dates, TitleField } from '../components/ItemFields'
 import { sourceLabel } from './TaskRow'
-import { useAction } from './Toast'
-import { useDrop, useRemove } from './useRemove'
+import { useAction } from '../components/Toast'
+import { useDrop, useRemove } from '../components/useRemove'
 import './panel.css'
 
 interface Props {
@@ -20,99 +18,6 @@ interface Props {
 
 /** After this many roll-overs the panel offers a way out instead of another try. */
 const NUDGE_AFTER = 3
-
-const PLANS: readonly { target: PlanTarget; label: string }[] = [
-  { target: 'today', label: '今天' },
-  { target: 'tomorrow', label: '明天' },
-  { target: 'none', label: '不排' },
-]
-
-function TitleField({ item }: { item: Item }): React.JSX.Element {
-  const [title, setTitle] = useState(item.title)
-  const run = useAction()
-  useEffect(() => setTitle(item.title), [item.id, item.title])
-
-  const save = (): void => {
-    const next = title.trim()
-    if (!next) setTitle(item.title)
-    else if (next !== item.title) run(() => window.api.rename(item.id, next))
-  }
-  return (
-    <input
-      className="detail-title"
-      value={title}
-      aria-label="名稱"
-      spellCheck={false}
-      onChange={(e) => setTitle(e.target.value)}
-      onBlur={save}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.currentTarget.blur()
-        if (e.key === 'Escape') {
-          setTitle(item.title)
-          e.stopPropagation()
-        }
-      }}
-    />
-  )
-}
-
-function Dates({ item, day, dayStartHour }: Omit<Props, 'steps' | 'onClose'>): React.JSX.Element {
-  const [editing, setEditing] = useState(false)
-  const run = useAction()
-  useEffect(() => setEditing(false), [item.id])
-
-  const tomorrow = addDays(day, 1)
-  const current: PlanTarget | null =
-    item.plannedFor === null ? 'none' : item.plannedFor <= day ? 'today' : item.plannedFor === tomorrow ? 'tomorrow' : null
-  const due =
-    item.dueAt === null
-      ? null
-      : `${dayLabel(dayKey(item.dueAt, dayStartHour), day)}${item.dueHasTime ? ` ${clock(item.dueAt)}` : ''}`
-
-  return (
-    <div className="kv">
-      <span>排在</span>
-      <div className="chips">
-        {PLANS.map(({ target, label }) => (
-          <button
-            key={target}
-            className={`chip${current === target ? ' on' : ''}`}
-            aria-pressed={current === target}
-            onClick={() => run(() => window.api.plan(item.id, target))}
-          >
-            {label}
-          </button>
-        ))}
-        {current === null && <span className="chip on">{dayLabel(item.plannedFor!, day)}</span>}
-      </div>
-      <span>截止</span>
-      {editing ? (
-        <DueEditor
-          dayStartHour={dayStartHour}
-          onCancel={() => setEditing(false)}
-          onSubmit={(text) => {
-            setEditing(false)
-            run(() => window.api.setDue(item.id, text))
-          }}
-        />
-      ) : due ? (
-        <div className="due-line">
-          <span className="due">{due}</span>
-          <button className="act" onClick={() => setEditing(true)}>
-            改
-          </button>
-          <button className="act" onClick={() => run(() => window.api.setDue(item.id, null))}>
-            清除
-          </button>
-        </div>
-      ) : (
-        <button className="link" onClick={() => setEditing(true)}>
-          + 加截止日（會提醒）
-        </button>
-      )}
-    </div>
-  )
-}
 
 function Steps({ parent, steps }: { parent: Item; steps: readonly Item[] }): React.JSX.Element {
   const [text, setText] = useState('')

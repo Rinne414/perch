@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
-import { CHANNELS, type MainTab } from '@shared/ipc'
+import { CHANNELS, type FloatTab, type MainTab } from '@shared/ipc'
 import type { HookSetup } from '../integrations/install'
 import type { Log } from './log'
 import type { Updater } from './updater'
@@ -13,7 +13,7 @@ export interface AppContext {
   readonly hookSetup: HookSetup
   /** Tells every window that the data behind "now" changed. */
   broadcast(): void
-  showFloat(): void
+  showFloat(tab?: FloatTab): void
   openMain(tab?: MainTab): void
   isFloatPinned(): boolean
   setFloatPinned(on: boolean): void

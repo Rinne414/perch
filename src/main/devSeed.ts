@@ -85,5 +85,19 @@ export function seedIfRequested(db: DatabaseSync, dayStartHour: number): void {
     )
     applyAgentEvent(db, { v: 1, agent: 'gemini-cli', sessionId: 'g1', status: 'running', cwd: cwd('docs'), at: now - 5 * MIN }, now)
     applyAgentEvent(db, { v: 1, agent: 'grok-build', sessionId: 'k1', status: 'running', cwd: cwd('game'), at: now - MIN }, now)
+    // Folders left alone for a while, for the 專案 tab: a few days, and more than a month.
+    applyAgentEvent(
+      db,
+      { v: 1, agent: 'codex', sessionId: 'o1', status: 'done', cwd: cwd('style-transfer'), title: '換成新的模型', detail: '改好了，還沒跑完整測試', at: now - 5 * DAY },
+      now,
+    )
+    acknowledgeAgent(db, 'codex:o1', now - 5 * DAY)
+    applyAgentEvent(
+      db,
+      { v: 1, agent: 'claude-code', sessionId: 'o2', status: 'cancelled', cwd: cwd('old-site'), title: '搬到新主機', at: now - 40 * DAY },
+      now,
+    )
+    createItem(db, { kind: 'idea', title: '更新 README 的分頁說明', project: cwd('api-server'), source: 'agent:codex' }, now - 10 * MIN)
+    createItem(db, { kind: 'idea', title: '跑完整測試再合併', project: cwd('style-transfer') }, now - 5 * DAY)
   })
 }

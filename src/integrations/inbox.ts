@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { AgentEvent } from '../shared/agentEvent'
+import type { AgentEvent, ItemMessage } from '../shared/agentEvent'
 
 /**
  * The inbox is a folder of small JSON files, one per event. Writers create a
@@ -14,7 +14,7 @@ const PENDING = '.tmp'
 /** Parses JSON text, ignoring the byte order mark Windows tools (PowerShell 5.1) put before UTF-8. */
 export const parseJsonText = (text: string): unknown => JSON.parse(text.replace(/^﻿/, ''))
 
-export function writeInboxEvent(dir: string, event: AgentEvent): string {
+export function writeInboxEvent(dir: string, event: AgentEvent | ItemMessage): string {
   mkdirSync(dir, { recursive: true })
   const name = `${Date.now()}-${randomBytes(4).toString('hex')}.json`
   const tmp = join(dir, name + PENDING)

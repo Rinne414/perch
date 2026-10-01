@@ -13,9 +13,13 @@ A small glass window perches on your desktop and shows only what needs you **now
 ## What it does
 
 - **Agents come back to you.** Hooks for Claude Code, Codex, Grok Build and OpenCode report when a session finishes, fails or waits for input. You get a notification, and the session stays in the float until you mark it seen. The **Agent** tab keeps every session of the week — what it was asked, what came back — and a **回去** button copies the command that reopens it in its folder.
+- **A float with three tabs.** **待辦**: today with what is already done, routines due, what comes later and the newest ideas; click a title to rename it, move it or delete it right there. **Agent**: who waits on you and who is still running. **暫存**: what you pasted to keep. **控制台** opens the main window.
+- **Where every project was left.** The **專案** tab sorts the folders your agents worked in by when you last touched them, with what you last asked and how it went; folders left alone for three days or more turn amber. One click opens the folder.
+- **Agents can leave you work.** **記下來** on an agent card turns its last line into your own task, filed under its project. Agents can also run `perch-hook add "明天 確認 macOS 版能打開"` themselves; 設定 → 讓 agent 記進 Perch has the lines to paste into `CLAUDE.md` or `AGENTS.md` (Perch never edits those files).
+- **暫存 (stash).** Paste text, links or pictures with `Ctrl+V`, or drag pictures in, to keep them for a while; `#tags` sort them. What you have not used for 30 days goes (7, 30, 90 days or never in 設定 → 資料), **保留** keeps one for good. Perch never records the clipboard on its own.
 - **Claude Code usage limits.** With the optional status line (設定 → Agent 連線 → 額度), the Agent tab shows how much of the 5-hour and 7-day limits is used and when they reset; the float mentions it only once the 5-hour window passes 80%. Needs a Pro or Max plan.
 - **Capture without friction.** `Ctrl+Alt+N` anywhere opens a one-line box (設定 → 快速記錄 changes the keys). Dates are read from what you type, in Chinese or English: `明天下午3點 交報告`, `週五`, `10/2 17:00`. Lines without a date wait in **隨手記** until you give them a day.
-- **Fixed schedules.** Work shifts or classes at fixed weekly times ("週三 16:00–19:00, 週四 18:30–21:30"), each day with its own hours. They show on today's list with a countdown and remind you 30 minutes before (adjustable).
+- **Fixed schedules.** Work shifts or classes at fixed weekly times ("週三 16:00–19:00, 週四 18:30–21:30"), each day with its own hours. They show on today's list with a countdown and remind you 30 minutes before (adjustable). Typing `每週四 18:30-21:30 上班`, `每週一到五 9:00-18:00` or `每天 晚上10點 寫日記` in any capture box makes one.
 - **A real calendar.** The month at a glance, like the Windows tray calendar. Pick a day to see what happened (a timeline and a summary, with an agent's many replies in one project folded into one line), fill in what you forgot, or plan something for a day ahead.
 - **A note for each day.** Write a line or a page about the day in the calendar; it saves as you type. Optionally Perch writes each day — the note, what got done, what happened — into an [Obsidian](https://obsidian.md) vault as `Perch/<date>.md` (設定 → 資料 → Obsidian).
 - **Start instead of finish.** Break a task into small steps; the float shows the next one. **先做 5 分鐘** starts a five-minute timer on it — no pop-up when it ends, no failure state.
@@ -60,13 +64,22 @@ Anything can report to Perch by writing a JSON file into the inbox folder (`%APP
 
 `status` is one of `running`, `needs_input`, `done`, `failed`, `cancelled`. Write to a temporary name first and rename it to `*.json`, so the app never reads half a file.
 
+To leave the person something to do, write an item instead; `title` is read like the capture box, so a date in it makes a dated task and anything else waits in 隨手記, filed under the project in `cwd`:
+
+```json
+{ "v": 1, "kind": "item", "agent": "my-agent", "title": "明天 確認 macOS 版能打開", "cwd": "C:\\code\\app" }
+```
+
+`node perch-hook.js add "<text>" --inbox <inbox folder>` writes one for you, with the folder it runs in as `cwd`.
+
 ## Your data
 
 Everything lives in Perch's data folder — `%APPDATA%\Perch` on Windows, `~/Library/Application Support/Perch` on macOS, `~/.config/Perch` on Linux: a SQLite database (`tasks.db`), the agent inbox, `backups` and `logs`. From an agent report Perch keeps the status, the project folder, the first line of your prompt as a title, and one line of detail (the agent's last reply, what it is waiting for, or the error). 設定 → 按來源清除資料 deletes everything one agent wrote.
 
 - **Backups.** `backups\tasks-<date>_<time>.db` once a day (the last 7 are kept), and `…-before-update.db` right before a new version changes the database (the last 3). To go back to one, quit Perch from the tray, delete `tasks.db`, `tasks.db-wal` and `tasks.db-shm`, and copy the backup in as `tasks.db`.
 - **Log.** `logs\perch.log` records errors and app events (start, update, backup), never task titles or prompts. 設定 → 回報問題 opens a GitHub issue with the version filled in; read the log before attaching it.
-- **Export.** The JSON holds every item, the whole timeline, the agent sessions and the day notes (times in Unix milliseconds, `"format": 1`); the Markdown is the same for reading.
+- **Export.** The JSON holds every item, the whole timeline, the agent sessions, the day notes and 暫存 (times in Unix milliseconds, `"format": 1`); the Markdown is the same for reading, and the stashed pictures are copied into a folder next to it.
+- **暫存 pictures** are files in `clips\<year-month>\`, the rest is in the database. A deleted or cleared picture waits in `clips\.deleted` for 8 days, so restoring a week-old backup still finds it.
 - **Obsidian.** Perch only writes inside the `Perch` folder of the vault you pick, one file per day, and rewrites a file only when that day changed. It is one way: edits made in Obsidian are not read back. If the vault syncs to a cloud, so do these notes (they include the first lines of your agent prompts).
 - **Claude Code usage** is kept in `inbox/quota/claude-code.json`: the used percentages and reset times, nothing else.
 
@@ -96,6 +109,7 @@ Development switches (ignored by an installed copy):
 | `TC_SEED=1` | Fill an empty database with sample data |
 | `TC_SCREENSHOT=<file.png>` | Grab the window from the screen once rendered, print its text, and quit |
 | `TC_SCREENSHOT_VIEW=float\|main\|capture`, `TC_SCREENSHOT_TAB=inbox` | Which window and tab to capture |
+| `TC_SCREENSHOT_PASTE=1` | Runs the real paste command (what `Ctrl+V` does) with the system clipboard before the grab |
 | `TC_SCREENSHOT_JS=<script>` | Run a script in the page first (clicks, typing) |
 | `TC_SCREENSHOT_BACKDROP=wallpaper\|light` | Put a known background (the mockups' wallpaper, or a plain light page) behind the glass |
 | `TC_UPDATE_FEED=<url>` | 檢查更新 reads `latest.yml` from this address instead of GitHub; a development run downloads but never installs |
@@ -108,9 +122,12 @@ Why it works the way it does — what was borrowed from Todoist, TickTick, Sunsa
 
 Perch 是給同時跑好幾個 AI agent 的人用的桌面提醒工具，所有資料都只存在自己的電腦裡。
 
-- 浮窗只顯示「現在」要處理的事：今天的固定行程、跑完或在等你回覆的 agent、今天的事和下一步、太久沒做的例行事項。
+- 浮窗分三個分頁：「待辦」（今天的事、做完的劃掉、之後、隨手記，點標題就能就地改名、改日期、刪除）、「Agent」（在等你的、還在跑的）、「暫存」；「控制台」按鈕打開主視窗。
+- 「專案」頁從 agent 紀錄自動整理每個資料夾停在哪：最後一次碰是什麼時候、最後問了什麼、結果如何，三天以上沒碰的會變黃，一鍵開資料夾。
+- Agent 卡片上的「記下來」把它最後一句話變成你的待辦，掛在那個專案下；agent 自己也能跑 `perch-hook add "明天 …"` 記進來（設定 → 讓 agent 記進 Perch 有可以貼進 CLAUDE.md / AGENTS.md 的說明）。
+- 「暫存」：按 Ctrl+V 或把圖片拖進來，文字、連結、圖片都能先放著，用 `#標籤` 分類；30 天沒用到會清掉（可改 7 / 90 天或永不），按「保留」就一直留著。不會自動記錄剪貼簿。
 - 在任何地方按 `Ctrl+Alt+N` 就能記下一件事，日期可以直接用中文寫：「明天下午3點 交報告」；沒寫日期的會先放進「隨手記」。
-- 固定行程（例如每週三 16:00–19:00、週四 18:30–21:30 上班）會出現在今天的行程，開始前 30 分鐘提醒。
+- 固定行程（例如每週三 16:00–19:00、週四 18:30–21:30 上班）會出現在今天的行程，開始前 30 分鐘提醒；直接打「每週四 18:30-21:30 上班」也能建立。
 - 日曆像 Windows 右下角那樣一格一天：點過去的日子看那天做了什麼和總結，也能補記；點未來的日子看行程、截止，或直接加一件事。同一個 project 的 agent 回覆合併成一行，點開才看每一次。
 - 每一天都能寫筆記（日記），邊打邊存；也可以選一個 Obsidian 資料夾，每天寫一份 `Perch/日期.md`。
 - Agent 分頁列出這週所有 session：問了什麼、回了什麼，一鍵複製回去的指令。裝上 Claude Code 的狀態列後，也看得到 5 小時和 7 天的額度，5 小時用到 80% 浮窗才會提醒。

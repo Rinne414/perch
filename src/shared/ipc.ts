@@ -1,7 +1,9 @@
 import type { DayMarks, DayView } from './calendar'
+import type { Clip, ClipsPayload } from './clips'
 import type { IntegrationsPayload } from './integrations'
-import type { MainView } from './mainView'
+import type { MainView, UpcomingEntry } from './mainView'
 import type { NowView } from './now'
+import type { ProjectDetail, ProjectSummary } from './projects'
 import type { QuotaSnapshot, QuotaWindow } from './quota'
 import type { Recap } from './recap'
 import type { AgentSession, Item, RoutineSchedule } from './types'
@@ -9,8 +11,12 @@ import type { AgentSession, Item, RoutineSchedule } from './types'
 /** Where a captured line goes when it carries no date. */
 export type CaptureTarget = 'today' | 'inbox'
 
-export type MainTab = 'today' | 'inbox' | 'agents' | 'routines' | 'calendar' | 'settings'
-export const MAIN_TABS: readonly MainTab[] = ['today', 'inbox', 'agents', 'routines', 'calendar', 'settings']
+export type MainTab = 'today' | 'inbox' | 'stash' | 'agents' | 'projects' | 'routines' | 'calendar' | 'settings'
+export const MAIN_TABS: readonly MainTab[] = ['today', 'inbox', 'stash', 'agents', 'projects', 'routines', 'calendar', 'settings']
+
+/** The float's tabs: what to do, what the agents are up to, and what was pasted to keep. */
+export type FloatTab = 'todo' | 'agents' | 'stash'
+export const FLOAT_TABS: readonly FloatTab[] = ['todo', 'agents', 'stash']
 
 /** "不排" moves a planned item back to the inbox (unless it has a deadline). */
 export type PlanTarget = 'today' | 'tomorrow' | 'none'
@@ -39,6 +45,15 @@ export interface NowPayload {
   readonly focus: FocusState | null
   /** Claude Code's 5-hour window once it is nearly used up; null otherwise. */
   readonly quotaAlert: QuotaWindow | null
+  /** The first few things planned or due after today, soonest first. */
+  readonly upcoming: readonly UpcomingEntry[]
+  readonly upcomingCount: number
+  /** The newest few undated ideas (隨手記); `view.inboxCount` has how many there are. */
+  readonly ideas: readonly Item[]
+  /** Finished today, latest first, so a mistaken check can be taken back. */
+  readonly doneToday: readonly Item[]
+  /** The last few sessions that finished and no longer wait on anyone, newest first. */
+  readonly recentAgents: readonly AgentSession[]
 }
 
 export interface MainPayload {
@@ -54,6 +69,8 @@ export interface MainPayload {
   readonly focus: FocusState | null
   /** Claude Code's usage limits, only windows that have not reset yet; null when none are known. */
   readonly quota: QuotaSnapshot | null
+  /** Every folder agents worked in, most recently touched first (hidden ones included and marked). */
+  readonly projects: readonly ProjectSummary[]
 }
 
 /** How much the glass tints what is behind it: 淡 / 中 / 濃. */
@@ -73,6 +90,8 @@ export interface AppInfo {
   readonly lastBackupAt: number | null
   /** Where the daily Obsidian notes go (inside its Perch/ folder); null when off. */
   readonly obsidianDir: string | null
+  /** 暫存 that is not kept is cleared after this many days unused; null = never. */
+  readonly clipRetentionDays: number | null
 }
 
 /** Folders the settings page can open in Explorer. */
@@ -159,6 +178,36 @@ export interface Api {
   /** Saves the day's note (the diary); an empty text removes it. */
   setDayNote(day: string, text: string): Promise<void>
   acknowledgeAgents(ids: readonly string[]): Promise<void>
+  /** 暫存: everything pasted to keep, newest first, and how long unkept ones stay. */
+  getClips(): Promise<ClipsPayload>
+  addTextClip(text: string): Promise<Clip>
+  /** The picture's bytes (PNG, JPEG, GIF or WebP, at most 20 MB). */
+  addImageClip(bytes: Uint8Array): Promise<Clip>
+  /** New text, link or picture caption; #tags in it become the clip's tags. */
+  editClip(id: string, text: string): Promise<Clip>
+  /** 保留 (never cleared on its own) or back to temporary. */
+  keepClip(id: string, kept: boolean): Promise<Clip>
+  /** Puts the text or the picture on the clipboard; counts as a use. */
+  copyClip(id: string): Promise<void>
+  /** Shows a picture's file in Explorer. */
+  showClipInFolder(id: string): Promise<void>
+  /** 變成待辦: the first line waits in 隨手記. */
+  clipToTask(id: string): Promise<Item>
+  /** Deletes at once; `undoRemoveClip` brings it back for a minute. */
+  removeClip(id: string): Promise<void>
+  undoRemoveClip(id: string): Promise<boolean>
+  /** 7, 30 or 90 days unused, or null to keep everything. */
+  setClipRetention(days: number | null): Promise<AppInfo>
+  /** 記下來 on an agent card: a task or idea in the person's words, filed under that agent's folder. */
+  noteFromAgent(sessionId: string, text: string, plan: PlanTarget): Promise<Item>
+  /** Opens a folder an agent worked in; false when no agent reported it or it no longer exists. */
+  openProjectFolder(cwd: string): Promise<boolean>
+  /** One project's latest sessions and open work; null when no agent worked in that folder. */
+  getProjectDetail(cwd: string): Promise<ProjectDetail | null>
+  /** "不再列出" (true) or list it again (false). */
+  setProjectHidden(cwd: string, hidden: boolean): Promise<void>
+  /** A line typed in a project's panel: its task when it names a date, otherwise its idea. */
+  captureForProject(text: string, cwd: string): Promise<Item>
   dismissRecap(): Promise<void>
   getIntegrations(): Promise<IntegrationsPayload>
   /** Installs (on = true) or removes an agent's hook; returns the fresh state. */
@@ -194,6 +243,8 @@ export interface Api {
   hideWindow(): void
   onChanged(listener: () => void): () => void
   onNavigate(listener: (tab: MainTab) => void): () => void
+  /** A notification was clicked: the float shows the tab it is about. */
+  onFloatTab(listener: (tab: FloatTab) => void): () => void
 }
 
 export const CHANNELS = {
@@ -227,6 +278,22 @@ export const CHANNELS = {
   removeManualEntry: 'calendar:remove-entry',
   setDayNote: 'calendar:note',
   acknowledgeAgents: 'agent:acknowledge',
+  getClips: 'clip:list',
+  addTextClip: 'clip:add-text',
+  addImageClip: 'clip:add-image',
+  editClip: 'clip:edit',
+  keepClip: 'clip:keep',
+  copyClip: 'clip:copy',
+  showClipInFolder: 'clip:show',
+  clipToTask: 'clip:to-task',
+  removeClip: 'clip:remove',
+  undoRemoveClip: 'clip:undo-remove',
+  setClipRetention: 'clip:retention',
+  noteFromAgent: 'agent:note',
+  openProjectFolder: 'agent:open-folder',
+  getProjectDetail: 'project:detail',
+  setProjectHidden: 'project:hide',
+  captureForProject: 'project:capture',
   dismissRecap: 'recap:dismiss',
   getIntegrations: 'integrations:get',
   setHook: 'integrations:hook',
@@ -252,4 +319,5 @@ export const CHANNELS = {
   hideWindow: 'window:hide',
   changed: 'now:changed',
   navigate: 'main:navigate',
+  floatTab: 'float:tab',
 } as const

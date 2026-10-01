@@ -1,0 +1,174 @@
+/* 專案: one row per folder agents worked in, and its panel on the right. */
+.mw .projects-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mw .proj-name {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  font: 600 14.5px/1.3 var(--font-display);
+}
+
+/* The name keeps its line; when room runs out the path shrinks first. */
+.mw .proj-title {
+  flex: none;
+  max-width: 75%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mw .proj-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 11.5px/1.4 'Cascadia Mono', Consolas, monospace;
+  color: var(--faint);
+}
+
+/* A long prompt stays on one line; the whole of it is in the tooltip and the panel. */
+.mw .proj .sub.last {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mw .proj .sub b {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.mw .proj .sub.faint {
+  color: var(--faint);
+}
+
+.mw .proj .age {
+  min-width: 64px;
+  text-align: right;
+}
+
+/* Left alone for days: the age turns the wait colour, never red. */
+.mw .proj .stale {
+  color: var(--wait);
+}
+
+.mw .proj .agent-acts {
+  opacity: 0;
+  transition: opacity var(--fast);
+}
+
+.mw .proj:hover .agent-acts,
+.mw .proj.selected .agent-acts,
+.mw .proj:focus-within .agent-acts {
+  opacity: 1;
+}
+
+.mw .proj .agent-acts .resume {
+  opacity: 1;
+}
+
+.mw .folded .more {
+  padding-left: 8px;
+}
+
+/* The panel */
+.mw .project-panel .panel-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 16px/1.3 var(--font-display);
+}
+
+.mw .project-panel .panel-path {
+  flex: none;
+  margin-top: -12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.mw .grp {
+  display: grid;
+  gap: 8px;
+}
+
+.mw .hist {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.mw .hist li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  font-size: 12.5px;
+}
+
+.mw .hist time {
+  color: var(--faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mw .hist b {
+  font-weight: 500;
+}
+
+.mw .hist em {
+  margin-left: 6px;
+  font-style: normal;
+}
+
+.mw .hist-head {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mw .hist .sub {
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mw .hist .resume {
+  opacity: 0;
+}
+
+.mw .hist li:hover .resume,
+.mw .hist .resume:focus-visible {
+  opacity: 1;
+}
+
+.mw .st-done {
+  color: var(--done);
+}
+
+.mw .st-needs_input {
+  color: var(--wait);
+}
+
+.mw .st-failed {
+  color: var(--late);
+}
+
+.mw .st-running {
+  color: var(--info);
+}
+
+.mw .st-cancelled {
+  color: var(--dim);
+}

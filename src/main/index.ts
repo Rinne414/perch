@@ -1,7 +1,7 @@
 import { app, globalShortcut, type BrowserWindow, type Tray } from 'electron'
 import { basename, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
-import { MAIN_TABS, type MainTab } from '@shared/ipc'
+import { CHANNELS, MAIN_TABS, type FloatTab, type MainTab } from '@shared/ipc'
 import { broadcastChange, settingsReader, type AppContext } from './context'
 import { openDatabase } from './db/connection'
 import { getSetting, setSetting } from './db/settings'
@@ -11,7 +11,8 @@ import { watchInbox } from './inboxWatcher'
 import { registerIpc } from './ipc'
 import { createLog } from './log'
 import { notify } from './notify'
-import { backupsDir, dataDir, hookSetup, logsDir, separateDevProfile } from './paths'
+import { registerClipScheme, serveClips } from './clipProtocol'
+import { backupsDir, clipsDir, dataDir, hookSetup, logsDir, separateDevProfile } from './paths'
 import { startScheduler } from './scheduler'
 import { startDailyBackups, writeBackup } from './services/backup'
 import { createObsidianSync } from './services/obsidian'
@@ -37,12 +38,14 @@ const WELCOMED = 'welcomed'
 
 const alive = (win: BrowserWindow | null): win is BrowserWindow => win !== null && !win.isDestroyed()
 
-function showFloat(): void {
+/** Shows the float, on `tab` when a notification says what it is about. */
+function showFloat(tab?: FloatTab): void {
   if (!db) return
   if (!alive(floatWin)) {
-    floatWin = createFloatWindow(db)
+    floatWin = createFloatWindow(db, tab)
     return
   }
+  if (tab) floatWin.webContents.send(CHANNELS.floatTab, tab)
   floatWin.show()
   floatWin.focus()
 }
@@ -131,7 +134,8 @@ function start(): void {
     syncObsidian: createObsidianSync(database, settings, log),
   }
   registerIpc(ctx)
-  tray = createTray({ showFloat, openMain: () => openMain(), openCapture, quit: () => app.quit() })
+  serveClips(database, clipsDir())
+  tray = createTray({ showFloat: () => showFloat(), openMain: () => openMain(), openCapture, quit: () => app.quit() })
   registerCaptureShortcut(settings().captureShortcut)
   const inbox = watchInbox(ctx, join(dataDir(), 'inbox'))
   closeInbox = inbox.close
@@ -150,6 +154,7 @@ function welcomeOnce(database: DatabaseSync): void {
 }
 
 separateDevProfile()
+registerClipScheme()
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {

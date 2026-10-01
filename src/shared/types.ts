@@ -49,6 +49,8 @@ export interface Item {
   readonly source: string
   /** Routines only: fixed weekly times. Such a routine has no interval and is never "due". */
   readonly schedule: RoutineSchedule | null
+  /** The folder of the agent project it belongs to (see the 專案 tab); null for most items. */
+  readonly project: string | null
 }
 
 export interface NewItem {
@@ -64,6 +66,7 @@ export interface NewItem {
   readonly lastDoneAt?: number | null
   readonly source?: string
   readonly schedule?: RoutineSchedule | null
+  readonly project?: string | null
 }
 
 export type ItemPatch = Partial<

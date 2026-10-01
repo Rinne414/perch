@@ -7,6 +7,8 @@ const HOUR = 60 * MINUTE
 const LOOKAHEAD_DAYS = 8
 const MAX_SLOTS = 14
 const MAX_REMIND_MINUTES = 24 * 60
+/** A new fixed-time routine reminds this long before each start, until the person changes it. */
+export const DEFAULT_REMIND_MINUTES = 30
 
 /** One weekly slot on one date, as real times. */
 export interface Occurrence {

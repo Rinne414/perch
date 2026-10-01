@@ -87,6 +87,42 @@ export const SettingsIcon = (p: IconProps): React.JSX.Element => (
   </NavIcon>
 )
 
+/** 暫存: a clipboard with a few lines. */
+export const StashIcon = (p: IconProps): React.JSX.Element => (
+  <NavIcon {...p}>
+    <rect x="3" y="2.8" width="10" height="11.5" rx="1.6" />
+    <path d="M6 2.8V1.8h4v1M5.5 7h5M5.5 10h3.5" />
+  </NavIcon>
+)
+
+/** 保留: a bookmark, filled when the clip is kept. */
+export const KeepIcon = ({ size = 14, filled = false }: IconProps & { filled?: boolean }): React.JSX.Element => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4.5 2.5h7v11L8 11l-3.5 2.5z" />
+  </svg>
+)
+
+export const CopyIcon = ({ size = 14 }: IconProps): React.JSX.Element => (
+  <NavIcon size={size}>
+    <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+    <path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" />
+  </NavIcon>
+)
+
+export const FolderIcon = ({ size = 14 }: IconProps): React.JSX.Element => (
+  <NavIcon size={size}>
+    <path d="M1.8 4.2a1 1 0 0 1 1-1h3.3l1.5 1.6h5.6a1 1 0 0 1 1 1v6.9a1 1 0 0 1-1 1H2.8a1 1 0 0 1-1-1z" />
+  </NavIcon>
+)
+
+/** A window with a sidebar: the main window, which the person calls 控制台. */
+export const PanelIcon = ({ size = 14 }: IconProps): React.JSX.Element => (
+  <NavIcon size={size}>
+    <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+    <path d="M5.5 2.5v11" />
+  </NavIcon>
+)
+
 export const TrashIcon = ({ size = 12 }: IconProps): React.JSX.Element => (
   <NavIcon size={size}>
     <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" />

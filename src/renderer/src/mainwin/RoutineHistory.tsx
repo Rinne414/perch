@@ -5,7 +5,7 @@ import { clock, dayTitle } from '@shared/format'
 import type { RoutineHistory } from '@shared/ipc'
 import type { Item } from '@shared/types'
 import { WindowIcon } from '../components/Icons'
-import { useAction, useToast } from './Toast'
+import { useAction, useToast } from '../components/Toast'
 
 interface Props {
   readonly routine: Item

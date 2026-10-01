@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { monthGrid, type DayMarks } from '@shared/calendar'
 import type { MainPayload } from '@shared/ipc'
 import { DayPanel } from './DayPanel'
-import { useToast } from './Toast'
+import { useToast } from '../components/Toast'
 import './calendar.css'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']

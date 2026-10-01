@@ -5,6 +5,7 @@ import { hookPayloadToEvent, isHookAgent } from '../integrations/adapters'
 import { parseJsonText, writeInboxEvent } from '../integrations/inbox'
 import { agentPresent, install, INSTALLABLE, isInstallable, isInstalled, uninstall } from '../integrations/install'
 import { saveQuota } from '../integrations/quota'
+import { parseItemMessage } from '../shared/agentEvent'
 import { readWrapped } from '../integrations/statusline'
 import { runWrapped } from '../integrations/statuslineRun'
 import { quotaFromStatusline, statuslineText } from '../shared/quota'
@@ -13,12 +14,14 @@ import { quotaFromStatusline, statuslineText } from '../shared/quota'
  * Usage:
  *   node perch-hook.js hook <agent> --inbox <dir>     (called by an agent's hook, payload on stdin)
  *   node perch-hook.js statusline claude-code --inbox <dir> [--wrap <file>]   (Claude Code's status line, session data on stdin)
+ *   node perch-hook.js add "<text>" --inbox <dir> [--agent <name>] [--cwd <dir>]   (leave the person something to do later)
  *   node perch-hook.js install <agent> --inbox <dir>
  *   node perch-hook.js uninstall <agent>
  *   node perch-hook.js status
  *
  * The hook command must never slow down or break the agent: it always exits 0
- * and writes problems to <inbox>/hook-errors.log instead.
+ * and writes problems to <inbox>/hook-errors.log instead. `add` is asked for on
+ * purpose, so it says what went wrong and exits 1.
  */
 
 const STDIN_TIMEOUT_MS = 3000
@@ -86,6 +89,42 @@ async function runStatusline(agent: string, inbox: string, wrap: string | undefi
   process.stdout.write(line)
 }
 
+/** Who is asking, when --agent is not given: Claude Code marks the shells it runs. */
+const callingAgent = (): string => (process.env['CLAUDECODE'] ? 'claude-code' : 'agent')
+
+/**
+ * Leaves the person something to do later. It belongs to the folder it is run in (the
+ * agent's project) and is read like the capture field: "明天下午3點 …" makes a dated task.
+ */
+function runAdd(text: string | undefined, args: string[]): number {
+  const inbox = option(args, '--inbox')
+  const title = text?.trim()
+  if (!title || !inbox) {
+    process.stderr.write('Usage: perch-hook add "<what to do, may start with a date>" --inbox <dir> [--agent <name>] [--cwd <dir>]\n')
+    return 1
+  }
+  const message = parseItemMessage({
+    v: 1,
+    kind: 'item',
+    agent: option(args, '--agent') ?? callingAgent(),
+    title,
+    cwd: option(args, '--cwd') ?? process.cwd(),
+    at: Date.now(),
+  })
+  if (!message) {
+    process.stderr.write('The agent name may only use a-z, 0-9, ".", "_" and "-".\n')
+    return 1
+  }
+  try {
+    writeInboxEvent(inbox, message)
+  } catch (err) {
+    process.stderr.write(`Could not write to ${inbox}: ${(err as Error).message}\n`)
+    return 1
+  }
+  process.stdout.write(`已記到 Perch：${message.title}\n`)
+  return 0
+}
+
 function logHookError(inbox: string, agent: string, err: unknown): void {
   try {
     mkdirSync(inbox, { recursive: true })
@@ -132,10 +171,13 @@ async function main(): Promise<void> {
     await runStatusline(agent ?? '', option(rest, '--inbox') ?? join(homedir(), '.perch', 'inbox'), option(rest, '--wrap'))
     process.exit(0)
   }
+  if (command === 'add') {
+    process.exit(runAdd(agent, rest))
+  }
   if (command === 'install' || command === 'uninstall' || command === 'status') {
     process.exit(manage(command, agent, rest))
   }
-  process.stderr.write('Usage: perch-hook <hook|statusline|install|uninstall|status> [agent] [--inbox <dir>]\n')
+  process.stderr.write('Usage: perch-hook <hook|statusline|add|install|uninstall|status> [agent] [--inbox <dir>]\n')
   process.exit(1)
 }
 

@@ -8,8 +8,8 @@ import { nextLabel } from '../components/ScheduleRow'
 import { useCompleting } from '../float/rows'
 import { RoutineForm, type RoutineDraft } from './RoutineForm'
 import { RoutineHistoryPanel } from './RoutineHistory'
-import { useAction } from './Toast'
-import { useRemove } from './useRemove'
+import { useAction } from '../components/Toast'
+import { useRemove } from '../components/useRemove'
 import './routines.css'
 
 const sinceLabel = (daysSince: number | null): string =>

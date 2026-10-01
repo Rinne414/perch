@@ -1,0 +1,91 @@
+/* One agent session, in the main window and the float alike: the prompt, the reply in a quiet box, and the ways back always in reach. */
+:is(.mw, .float) .agent .resume,
+:is(.mw, .float) .agent .note {
+  opacity: 1;
+}
+
+/* 記下來: the agent's last line, ready to edit into the person's own task. */
+:is(.mw, .float) .note-form {
+  margin-top: 8px;
+  padding: 9px;
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(157, 184, 255, 0.35);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+:is(.mw, .float) .note-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+:is(.mw, .float) .note-form .btn {
+  padding: 4px 10px;
+}
+
+/* Where it will be filed, on the left of the buttons; it takes the room they leave. */
+:is(.mw, .float) .note-where {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+:is(.mw, .float) .sub.prompt {
+  color: var(--text);
+  opacity: 0.8;
+}
+
+:is(.mw, .float) .res {
+  margin-top: 4px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--field);
+  font-size: 12px;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+:is(.mw, .float) .row.seen {
+  opacity: 0.6;
+}
+
+:is(.mw, .float) .agent-cancelled .dot {
+  background: var(--faint);
+}
+
+:is(.mw, .float) .agent-running .dot {
+  background: var(--info);
+}
+
+:is(.mw, .float) .agent-running .sub em {
+  color: var(--info);
+}
+
+:is(.mw, .float) .agent-acts {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* In the narrow float the buttons sit under the reply, so the text keeps its width. */
+:is(.mw, .float) .agent-acts.below {
+  margin: 6px 0 0 -6px;
+}
+
+:is(.mw, .float) .agent-acts .folder {
+  color: var(--dim);
+}
+
+:is(.mw, .float) .agent-acts .folder:hover {
+  color: var(--text);
+}

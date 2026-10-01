@@ -5,7 +5,7 @@ import { clock, dayTitle } from '@shared/format'
 import type { Item } from '@shared/types'
 import { CheckIcon, WindowIcon } from '../components/Icons'
 import { useCompleting } from '../float/rows'
-import { useAction, useToast } from './Toast'
+import { useAction, useToast } from '../components/Toast'
 
 /** "今天", "明天", "3 天前", "5 天後". */
 function relationLabel(day: string, today: string): string {

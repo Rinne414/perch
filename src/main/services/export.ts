@@ -1,17 +1,20 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { groupTimeline, type EntryKind, type TimelineEntry } from '@shared/calendar'
 import { dayKey } from '@shared/day'
 import { clock, dayTitle, monthDay } from '@shared/format'
 import { bucketOf, firstDayOf, isTopLevelWork, type ListSettings } from '@shared/lists'
 import { scheduleLabel } from '@shared/schedule'
+import type { Clip } from '@shared/clips'
 import type { AgentSession, Item, TimelineEvent } from '@shared/types'
 import { listAgentSessions } from '../db/agents'
 import { listDayNotes } from '../db/dayNotes'
 import { listEvents } from '../db/events'
 import { listAllItems } from '../db/items'
+import { listClips } from '../db/clips'
 import { entryOf } from './calendar'
+import { clipFilePath } from './clips'
 
 /** Bumped when the JSON layout changes in a way a reader has to know about. */
 export const EXPORT_FORMAT = 1
@@ -27,6 +30,8 @@ export interface ExportData {
   readonly agentSessions: readonly AgentSession[]
   /** The diary: one note per day (YYYY-MM-DD), oldest first. */
   readonly dayNotes: readonly { readonly day: string; readonly text: string }[]
+  /** 暫存, newest first; pictures are copied into the folder next to the files (`file` keeps its name). */
+  readonly clips: readonly Clip[]
 }
 
 export function collectExport(db: DatabaseSync, version: string, now: number): ExportData {
@@ -39,7 +44,18 @@ export function collectExport(db: DatabaseSync, version: string, now: number): E
     timeline: listEvents(db, 0, Number.MAX_SAFE_INTEGER),
     agentSessions: listAgentSessions(db, 0),
     dayNotes: listDayNotes(db).map(({ day, text }) => ({ day, text })),
+    clips: listClips(db),
   }
+}
+
+/** 暫存 in Markdown: text on a line, links as links, pictures shown from the copied folder. */
+function clipLines(clips: readonly Clip[], imageFolder: string): string[] {
+  return clips.map((c) => {
+    const kept = c.kept ? '（保留）' : ''
+    if (c.kind === 'image') return `- ${kept}![${oneLine(c.text) || '圖片'}](${imageFolder}/${c.file?.split('/').at(-1) ?? ''})`
+    if (c.kind === 'link') return `- ${kept}<${c.text}>`
+    return `- ${kept}${oneLine(c.text)}`
+  })
 }
 
 const KIND_LABEL: Readonly<Record<EntryKind, string>> = {
@@ -120,8 +136,8 @@ const section = (title: string, lines: readonly string[], empty: string): string
   '',
 ]
 
-/** A readable copy: what is still open, what waits in 隨手記, the routines, then every day newest first. */
-export function toMarkdown(data: ExportData, settings: ListSettings, now: number): string {
+/** A readable copy: what is still open, what waits in 隨手記, the routines, 暫存, then every day newest first. */
+export function toMarkdown(data: ExportData, settings: ListSettings, now: number, imageFolder = 'clips'): string {
   const today = dayKey(now, settings.dayStartHour)
   const open = data.items.filter(isTopLevelWork)
   const dated = open
@@ -139,6 +155,7 @@ export function toMarkdown(data: ExportData, settings: ListSettings, now: number
     ...section('還沒做完', workLines(data.items, dated), '（沒有）'),
     ...section('隨手記', workLines(data.items, undated), '（沒有）'),
     ...section('例行', routines.map(routineLine), '（沒有）'),
+    ...section('暫存', clipLines(data.clips, imageFolder), '（沒有）'),
     '## 紀錄',
     '',
     ...timelineLines(data.timeline, data.dayNotes, settings.dayStartHour),
@@ -150,14 +167,27 @@ export function toMarkdown(data: ExportData, settings: ListSettings, now: number
 
 const pad = (n: number): string => String(n).padStart(2, '0')
 
-/** Writes perch-export-<date>-<time>.json and .md into `folder` and returns both paths. */
+/** Copies the 暫存 pictures into `target`; returns it, or null when there were none. */
+function copyClipImages(clips: readonly Clip[], clipsDir: string, target: string): string | null {
+  const files = clips.map((c) => clipFilePath(clipsDir, c)).filter((f): f is string => f !== null && existsSync(f))
+  if (files.length === 0) return null
+  mkdirSync(target, { recursive: true })
+  for (const file of files) copyFileSync(file, join(target, basename(file)))
+  return target
+}
+
+/**
+ * Writes perch-export-<date>-<time>.json and .md into `folder`, and the 暫存 pictures into
+ * perch-export-<date>-<time>-clips/ beside them when `clipsDir` is given.
+ */
 export function writeExport(
   db: DatabaseSync,
   folder: string,
   version: string,
   settings: ListSettings,
   now: number,
-): { json: string; markdown: string } {
+  clipsDir?: string,
+): { json: string; markdown: string; images: string | null } {
   const data = collectExport(db, version, now)
   const d = new Date(now)
   const base = `perch-export-${dayKey(now, 0)}-${pad(d.getHours())}${pad(d.getMinutes())}`
@@ -165,6 +195,7 @@ export function writeExport(
   const json = join(folder, `${base}.json`)
   const markdown = join(folder, `${base}.md`)
   writeFileSync(json, `${JSON.stringify(data, null, 2)}\n`)
-  writeFileSync(markdown, toMarkdown(data, settings, now))
-  return { json, markdown }
+  writeFileSync(markdown, toMarkdown(data, settings, now, `${base}-clips`))
+  const images = clipsDir ? copyClipImages(data.clips, clipsDir, join(folder, `${base}-clips`)) : null
+  return { json, markdown, images }
 }

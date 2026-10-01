@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import type { DatabaseSync } from 'node:sqlite'
+import type { AgentStatus } from '@shared/types'
+import { acknowledgeAgent, applyAgentEvent } from '../db/agents'
 import { openDatabase } from '../db/connection'
-import { completeItem, createItem, getItem } from '../db/items'
+import { completeItem, createItem, dropItem, getItem } from '../db/items'
 import { captureText, dismissRecap, getNowPayload, postponeItem } from './now'
 import { DEFAULT_SETTINGS } from './settings'
 
@@ -24,6 +26,15 @@ describe('captureText', () => {
     expect(captureText(db, '買牛奶', 'today', NOW, DEFAULT_SETTINGS)).toMatchObject({
       kind: 'task',
       plannedFor: '2026-09-29',
+    })
+  })
+
+  test('a fixed weekly time becomes a routine on those days, reminding 30 minutes before', () => {
+    expect(captureText(db, '每週四 18:30-21:30 上班', 'today', NOW, DEFAULT_SETTINGS)).toMatchObject({
+      kind: 'routine',
+      title: '上班',
+      intervalDays: null,
+      schedule: { slots: [{ weekday: 4, start: '18:30', end: '21:30' }], remindMinutes: 30 },
     })
   })
 
@@ -73,5 +84,46 @@ describe('getNowPayload', () => {
     dismissRecap(db, NOW, DEFAULT_SETTINGS)
     expect(getNowPayload(db, NOW, DEFAULT_SETTINGS, true).recap).toBeNull()
     expect(getItem(db, done.id)?.doneAt).toBe(at(28, 20))
+  })
+
+  test('the float gets the start of the later list and the newest ideas, with the full counts', () => {
+    for (let d = 1; d <= 7; d++) {
+      createItem(db, { kind: 'task', title: `day ${d}`, plannedFor: `2026-10-0${d}` }, NOW)
+    }
+    ;['old idea', 'middle idea', 'new idea', 'newest idea'].forEach((title, i) => {
+      createItem(db, { kind: 'idea', title }, NOW + i)
+    })
+
+    const payload = getNowPayload(db, NOW, DEFAULT_SETTINGS, true)
+
+    expect(payload.upcoming.map((e) => e.item.title)).toEqual(['day 1', 'day 2', 'day 3', 'day 4', 'day 5'])
+    expect(payload.upcomingCount).toBe(7)
+    expect(payload.ideas.map((i) => i.title)).toEqual(['newest idea', 'new idea', 'middle idea'])
+    expect(payload.view.inboxCount).toBe(4)
+  })
+
+  test('today’s done list leaves out what was let go', () => {
+    const done = createItem(db, { kind: 'task', title: 'done', plannedFor: '2026-09-29' }, NOW)
+    const dropped = createItem(db, { kind: 'task', title: 'dropped', plannedFor: '2026-09-29' }, NOW)
+    completeItem(db, done.id, NOW + 1)
+    dropItem(db, dropped.id, NOW + 2)
+
+    expect(getNowPayload(db, NOW + 3, DEFAULT_SETTINGS, true).doneToday.map((i) => i.title)).toEqual(['done'])
+  })
+
+  test('recent agents are only the settled ones, newest first', () => {
+    const ev = (sessionId: string, status: AgentStatus, t: number): void => {
+      applyAgentEvent(db, { v: 1, agent: 'codex', sessionId, status, at: t }, t)
+    }
+    ev('running', 'running', NOW - 5)
+    ev('waiting', 'needs_input', NOW - 4)
+    ev('seen', 'done', NOW - 3)
+    acknowledgeAgent(db, 'codex:seen', NOW - 2)
+    ev('stopped', 'cancelled', NOW - 1)
+
+    expect(getNowPayload(db, NOW, DEFAULT_SETTINGS, true).recentAgents.map((s) => s.sessionId)).toEqual([
+      'stopped',
+      'seen',
+    ])
   })
 })

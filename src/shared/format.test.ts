@@ -1,5 +1,24 @@
 import { describe, expect, test } from 'vitest'
-import { dayLabel, daysAgoLabel } from './format'
+import { dayLabel, daysAgoLabel, shortDayLabel, whenLabel } from './format'
+
+describe('whenLabel', () => {
+  const at = (d: number, h: number, m = 0): number => new Date(2026, 9, d, h, m).getTime()
+
+  test('the time today, yesterday with its time, older days by date', () => {
+    expect(whenLabel(at(10, 9, 5), at(10, 15), 4)).toBe('09:05')
+    expect(whenLabel(at(9, 21, 40), at(10, 15), 4)).toBe('昨天 21:40')
+    expect(whenLabel(at(7, 21, 40), at(10, 15), 4)).toBe('10/7')
+  })
+})
+
+describe('shortDayLabel', () => {
+  test('names tomorrow, then the weekday for the coming week, then the date', () => {
+    expect(shortDayLabel('2026-10-02', '2026-10-01')).toBe('明天')
+    expect(shortDayLabel('2026-10-03', '2026-10-01')).toBe('週六')
+    expect(shortDayLabel('2026-10-07', '2026-10-01')).toBe('週三')
+    expect(shortDayLabel('2026-10-08', '2026-10-01')).toBe('10/8')
+  })
+})
 
 describe('dayLabel', () => {
   test('names the days next to today and dates the rest', () => {

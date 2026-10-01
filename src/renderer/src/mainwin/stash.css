@@ -1,0 +1,53 @@
+/* 暫存 in the main window: the page and the clip opened on the right. Cards come from components/clips.css. */
+.mw .stash-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mw .stash-search {
+  width: 220px;
+  flex: none;
+  padding: 5px 10px;
+}
+
+.mw .clip-panel .panel-kind {
+  flex: 1;
+}
+
+.mw .clip-panel .keep-btn.on {
+  color: var(--wait);
+}
+
+.mw .clip-preview {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.mw .clip-when {
+  margin-top: -8px;
+}
+
+.mw .clip-edit {
+  resize: vertical;
+  min-height: 52px;
+  font: 12.5px/1.5 var(--font-ui);
+}
+
+.mw .clip-tags {
+  color: var(--info);
+}
+
+.mw .grp.clip-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mw .clip-panel .detail-foot span {
+  white-space: normal;
+}

@@ -13,7 +13,7 @@ export function watchInbox(ctx: AppContext, dir: string): { drain: () => void; c
   mkdirSync(dir, { recursive: true })
   const drain = (): void => {
     try {
-      if (ingestInbox(ctx.db, dir, Date.now()).applied > 0) ctx.broadcast()
+      if (ingestInbox(ctx.db, dir, Date.now(), ctx.settings().dayStartHour).applied > 0) ctx.broadcast()
     } catch (err) {
       process.stderr.write(`Inbox ingest failed: ${(err as Error).message}\n`)
     }

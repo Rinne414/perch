@@ -44,6 +44,9 @@ export const needsAttention = (s: AgentSession): boolean =>
   s.attentionAt !== null &&
   (s.acknowledgedAt === null || s.acknowledgedAt < s.attentionAt)
 
+/** Finished, failed or stopped, and nobody needs to look at it any more. */
+export const isSettled = (s: AgentSession, now: number): boolean => !needsAttention(s) && !isRunning(s, now)
+
 export function byUrgency(a: TodayEntry, b: TodayEntry): number {
   if (a.overdueDays !== b.overdueDays) return b.overdueDays - a.overdueDays
   const at = a.item.dueHasTime ? (a.item.dueAt ?? Infinity) : Infinity

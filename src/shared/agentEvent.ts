@@ -19,8 +19,29 @@ export interface AgentEvent {
   readonly detail?: string
 }
 
+/**
+ * Something for the person to do later, written by an agent or a script (`perch-hook add`).
+ * The title is read like the capture field: a date in it ("明天下午3點 …") makes a dated
+ * task; without one it waits in 隨手記.
+ */
+export interface ItemMessage {
+  readonly v: 1
+  readonly kind: 'item'
+  /** Who asks, e.g. "claude-code"; shown as the item's source. */
+  readonly agent: string
+  readonly title: string
+  /** The folder it was written from: the project it belongs to. */
+  readonly cwd?: string
+  /** Epoch milliseconds; relative dates in the title are read from here. */
+  readonly at?: number
+}
+
 const STATUSES: ReadonlySet<string> = new Set(['running', 'needs_input', 'done', 'failed', 'cancelled'])
 const MAX_TEXT = 500
+const MAX_TITLE = 200
+const AGENT_ID = /^[a-z0-9][a-z0-9._-]{0,39}$/
+
+const timestamp = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
 
 const shortText = (v: unknown): string | undefined => {
   if (typeof v !== 'string') return undefined
@@ -38,16 +59,28 @@ export function parseAgentEvent(raw: unknown): AgentEvent | null {
   if (r['v'] !== 1 || !agent || !sessionId || typeof status !== 'string' || !STATUSES.has(status)) {
     return null
   }
-  if (!/^[a-z0-9][a-z0-9._-]{0,39}$/.test(agent)) return null
-  const at = typeof r['at'] === 'number' && Number.isFinite(r['at']) ? r['at'] : undefined
+  if (!AGENT_ID.test(agent)) return null
   return {
     v: 1,
     agent,
     sessionId,
     status: status as AgentStatus,
-    at,
+    at: timestamp(r['at']),
     cwd: shortText(r['cwd']),
     title: shortText(r['title']),
     detail: shortText(r['detail']),
   }
+}
+
+/** Validates an inbox file that asks for something to be noted. Null when it is not one, or not usable. */
+export function parseItemMessage(raw: unknown): ItemMessage | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const r = raw as Record<string, unknown>
+  if (r['v'] !== 1 || r['kind'] !== 'item') return null
+  const agent = shortText(r['agent'])
+  const title = typeof r['title'] === 'string' ? r['title'].trim().slice(0, MAX_TITLE) : ''
+  if (!agent || !AGENT_ID.test(agent) || !title) return null
+  const cwd = shortText(r['cwd'])
+  const at = timestamp(r['at'])
+  return { v: 1, kind: 'item', agent, title, ...(cwd ? { cwd } : {}), ...(at !== undefined ? { at } : {}) }
 }

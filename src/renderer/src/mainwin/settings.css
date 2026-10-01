@@ -231,3 +231,20 @@
   display: block;
   margin-bottom: 2px;
 }
+
+/* 讓 agent 記進 Perch: the lines to paste into an agent's rules file */
+.mw .snippet {
+  margin: 0;
+  padding: 12px 14px 4px;
+  font: 12px/1.6 'Cascadia Mono', Consolas, 'Microsoft JhengHei UI', monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  user-select: text;
+}
+
+.mw .snippet-acts {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 12px 10px;
+}

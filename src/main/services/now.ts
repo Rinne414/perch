@@ -3,18 +3,26 @@ import { parseCapture } from '@shared/capture'
 import { quotaAlert, type QuotaSnapshot } from '@shared/quota'
 import { addDays, dayKey, dayStart, moveToDay } from '@shared/day'
 import type { CaptureTarget, FocusState, NowPayload } from '@shared/ipc'
-import { buildNow } from '@shared/now'
+import { buildMainView } from '@shared/mainView'
+import { buildNow, isSettled } from '@shared/now'
 import { buildRecap } from '@shared/recap'
+import { DEFAULT_REMIND_MINUTES } from '@shared/schedule'
+import { parseWeekly } from '@shared/weekly'
 import type { Item } from '@shared/types'
 import { listAgentSessions } from '../db/agents'
 import { listEvents } from '../db/events'
-import { createItem, getItem, listOpenItems, updateItem } from '../db/items'
+import { createItem, getItem, listDoneItems, listOpenItems, updateItem } from '../db/items'
 import { getSetting, setSetting } from '../db/settings'
+import { createRoutine } from './manage'
 import type { AppSettings } from './settings'
 
 const DAY_MS = 86_400_000
 const AGENT_WINDOW_MS = 7 * DAY_MS
 const RECAP_DISMISSED = 'recapDismissedDay'
+/** The float shows the start of each list; the main window has the rest. */
+const FLOAT_UPCOMING = 5
+const FLOAT_IDEAS = 3
+const FLOAT_RECENT_AGENTS = 4
 
 export function getNowPayload(
   db: DatabaseSync,
@@ -24,21 +32,35 @@ export function getNowPayload(
   focus: FocusState | null = null,
   quota: QuotaSnapshot | null = null,
 ): NowPayload {
-  const view = buildNow(listOpenItems(db), listAgentSessions(db, now - AGENT_WINDOW_MS), now, settings)
+  const open = listOpenItems(db)
+  const sessions = listAgentSessions(db, now - AGENT_WINDOW_MS)
+  const view = buildNow(open, sessions, now, settings)
+  const today = dayStart(view.day, settings.dayStartHour)
+  const lists = buildMainView(open, [], listDoneItems(db, today, now + 1), now, settings)
   const dismissed = getSetting<string | null>(db, RECAP_DISMISSED, null) === view.day
   const yesterday = addDays(view.day, -1)
   const recap = dismissed
     ? null
-    : buildRecap(
-        yesterday,
-        listEvents(db, dayStart(yesterday, settings.dayStartHour), dayStart(view.day, settings.dayStartHour)),
-      )
-  return { view, recap, pinned, dayStartHour: settings.dayStartHour, focus, quotaAlert: quotaAlert(quota, now) }
+    : buildRecap(yesterday, listEvents(db, dayStart(yesterday, settings.dayStartHour), today))
+  return {
+    view,
+    recap,
+    pinned,
+    dayStartHour: settings.dayStartHour,
+    focus,
+    quotaAlert: quotaAlert(quota, now),
+    upcoming: lists.upcoming.slice(0, FLOAT_UPCOMING),
+    upcomingCount: lists.upcoming.length,
+    ideas: lists.inbox.slice(0, FLOAT_IDEAS),
+    doneToday: lists.doneToday.filter((i) => i.droppedAt === null),
+    recentAgents: sessions.filter((s) => isSettled(s, now)).slice(0, FLOAT_RECENT_AGENTS),
+  }
 }
 
 /**
- * One typed line becomes an item. A line with a date is a task due then; without
- * one it goes to today (typed in the float) or the inbox (typed anywhere else).
+ * One typed line becomes an item. A fixed weekly time ("每週四 18:30-21:30 上班") makes a
+ * routine; a line with a date is a task due then; without one it goes to today (typed in
+ * the float) or the inbox (typed anywhere else).
  */
 export function captureText(
   db: DatabaseSync,
@@ -47,6 +69,10 @@ export function captureText(
   now: number,
   settings: AppSettings,
 ): Item {
+  const weekly = parseWeekly(text)
+  if (weekly) {
+    return createRoutine(db, weekly.title, null, now, { slots: weekly.slots, remindMinutes: DEFAULT_REMIND_MINUTES })
+  }
   const parsed = parseCapture(text, now, settings.dayStartHour)
   if (parsed.dueAt !== null) {
     return createItem(db, { kind: 'task', title: parsed.title, dueAt: parsed.dueAt, dueHasTime: parsed.dueHasTime }, now)

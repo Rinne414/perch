@@ -31,6 +31,7 @@ function item(over: Partial<Item>): Item {
     notifiedAt: null,
     source: 'user',
     schedule: null,
+    project: null,
     ...over,
   }
 }

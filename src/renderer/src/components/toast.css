@@ -1,0 +1,43 @@
+/* "已刪除…  復原": one short confirmation at a time, centred at the bottom of the window. */
+.toast-slot {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 14px;
+  border-radius: 10px;
+  background: rgba(40, 44, 58, 0.94);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  font-size: 12.5px;
+  white-space: nowrap;
+  animation: toast 180ms ease-out;
+}
+
+.toast .btn {
+  border: 0;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12.5px;
+  background: var(--field);
+  color: var(--text);
+}
+
+.toast .btn:hover {
+  background: var(--press);
+}
+
+@keyframes toast {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}

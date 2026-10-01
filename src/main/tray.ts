@@ -19,7 +19,7 @@ export function createTray(actions: TrayActions): Tray {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: '顯示浮窗', click: actions.showFloat },
-      { label: '開啟主視窗', click: actions.openMain },
+      { label: '開啟控制台', click: actions.openMain },
       { label: '快速記錄', click: actions.openCapture },
       { type: 'separator' },
       { label: '結束', click: actions.quit },

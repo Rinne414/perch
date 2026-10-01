@@ -39,4 +39,6 @@ export interface IntegrationsPayload {
   readonly agents: readonly AgentIntegration[]
   readonly sources: readonly SourceUsage[]
   readonly statusline: StatuslineInfo
+  /** The command an agent runs to leave the person something to do, with an example text. */
+  readonly addCommand: string
 }

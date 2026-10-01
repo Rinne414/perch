@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import './toast.css'
 
 interface ToastMessage {
   readonly id: number
@@ -48,9 +49,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
   return (
     <ToastContext.Provider value={show}>
       {children}
-      <div className="mw-toast-slot" aria-live="polite">
+      <div className="toast-slot" aria-live="polite">
         {toast && (
-          <div className="mw-toast" key={toast.id}>
+          <div className="toast" key={toast.id}>
             <span>{toast.text}</span>
             {toast.undo && (
               <button className="btn" onClick={undo}>

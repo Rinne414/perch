@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { agentName, ATTENTION_STATUSES } from '@shared/agents'
 import type { AgentEvent } from '@shared/agentEvent'
+import { projectName } from '@shared/projects'
 import { promptTitle } from '@shared/prompt'
 import type { AgentSession, AgentStatus } from '@shared/types'
 import { appendEvent } from './events'
@@ -40,8 +41,6 @@ export function getAgentSession(db: DatabaseSync, id: string): AgentSession | nu
   return row ? toSession(row) : null
 }
 
-const projectName = (cwd: string | null): string | null =>
-  cwd ? (cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? null) : null
 
 /**
  * Records one status report. Events older than what is stored are ignored, so
@@ -118,6 +117,43 @@ export function listAgentSessions(db: DatabaseSync, since: number): AgentSession
     .prepare('SELECT * FROM agent_sessions WHERE updated_at >= ? ORDER BY updated_at DESC')
     .all(since) as unknown as SessionRow[]
   return rows.map(toSession)
+}
+
+export interface ProjectHead {
+  /** The session of this folder that reported last. */
+  readonly session: AgentSession
+  readonly sessionCount: number
+  readonly firstAt: number
+}
+
+/** Every folder agents reported working in, with its latest session. */
+export function listProjectHeads(db: DatabaseSync): ProjectHead[] {
+  const rows = db
+    .prepare(
+      `SELECT * FROM (
+         SELECT *,
+           ROW_NUMBER() OVER (PARTITION BY cwd ORDER BY updated_at DESC) AS rn,
+           COUNT(*) OVER (PARTITION BY cwd) AS session_count,
+           MIN(started_at) OVER (PARTITION BY cwd) AS first_at
+         FROM agent_sessions
+         WHERE cwd IS NOT NULL AND cwd <> ''
+       ) WHERE rn = 1`,
+    )
+    .all() as unknown as (SessionRow & { session_count: number; first_at: number })[]
+  return rows.map((r) => ({ session: toSession(r), sessionCount: r.session_count, firstAt: r.first_at }))
+}
+
+/** The latest sessions that worked in one folder, newest first. */
+export function listSessionsIn(db: DatabaseSync, cwd: string, limit: number): AgentSession[] {
+  const rows = db
+    .prepare('SELECT * FROM agent_sessions WHERE cwd = ? ORDER BY updated_at DESC LIMIT ?')
+    .all(cwd, limit) as unknown as SessionRow[]
+  return rows.map(toSession)
+}
+
+/** Whether any agent session reported working in this folder. */
+export function isKnownWorkFolder(db: DatabaseSync, cwd: string): boolean {
+  return db.prepare('SELECT 1 FROM agent_sessions WHERE cwd = ? LIMIT 1').get(cwd) !== undefined
 }
 
 export function deleteAgentSessionsByAgent(db: DatabaseSync, agent: string): number {

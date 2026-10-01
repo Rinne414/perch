@@ -4,6 +4,8 @@ import { execFile } from 'node:child_process'
 const SETTLE_MS = 1800
 /** Time for the page to react to TC_SCREENSHOT_JS before the grab. */
 const SCRIPT_SETTLE_MS = 700
+/** Time for a pasted picture or text to be saved and shown. */
+const PASTE_SETTLE_MS = 2500
 
 /** Copies a physical-pixel rectangle of the real screen, so acrylic shows as it really looks. */
 function grabScreen(rect: { x: number; y: number; width: number; height: number }, file: string): Promise<void> {
@@ -71,6 +73,11 @@ export function captureIfRequested(win: BrowserWindow): void {
       if (script) {
         await win.webContents.executeJavaScript(script)
         await new Promise((resolve) => setTimeout(resolve, SCRIPT_SETTLE_MS))
+      }
+      // TC_SCREENSHOT_PASTE=1: run the real paste command (what Ctrl+V does) with the system clipboard.
+      if (process.env['TC_SCREENSHOT_PASTE']) {
+        win.webContents.paste()
+        await new Promise((resolve) => setTimeout(resolve, PASTE_SETTLE_MS))
       }
       const shown = (script && BrowserWindow.getFocusedWindow()) || win
       const text = (await shown.webContents.executeJavaScript('document.body.innerText')) as string

@@ -7,10 +7,11 @@ import type { Item } from '@shared/types'
 import { CaptureField } from '../components/CaptureField'
 import { FocusArea, FocusStart } from '../components/Focus'
 import { ScheduleRow } from '../components/ScheduleRow'
-import { AgentRow, RoutineRow } from '../float/rows'
+import { AgentCard } from '../components/AgentCard'
+import { RoutineRow } from '../float/rows'
 import { stepCount, TaskRow } from './TaskRow'
 import { DoneToday, OverdueBatch } from './TodaySections'
-import { useAction } from './Toast'
+import { useAction } from '../components/Toast'
 
 interface Props {
   readonly payload: MainPayload
@@ -93,7 +94,7 @@ export function TodayTab({ payload, at, selected, onOpen }: Props): React.JSX.El
           </h2>
           <ul>
             {attention.map((s) => (
-              <AgentRow key={s.id} session={s} now={at} />
+              <AgentCard key={s.id} session={s} group="attention" at={at} />
             ))}
           </ul>
         </section>

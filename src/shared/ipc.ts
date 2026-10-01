@@ -178,9 +178,10 @@ export interface Api {
   /** Saves the day's note (the diary); an empty text removes it. */
   setDayNote(day: string, text: string): Promise<void>
   acknowledgeAgents(ids: readonly string[]): Promise<void>
-  /** 暫存: everything pasted to keep, newest first, and how long unkept ones stay. */
+  /** 暫存: everything written or pasted to keep, newest first, and how long unkept ones stay. */
   getClips(): Promise<ClipsPayload>
-  addTextClip(text: string): Promise<Clip>
+  /** Pasted text (temporary), or a memo written by hand with `kept` true. */
+  addTextClip(text: string, kept?: boolean): Promise<Clip>
   /** The picture's bytes (PNG, JPEG, GIF or WebP, at most 20 MB). */
   addImageClip(bytes: Uint8Array): Promise<Clip>
   /** New text, link or picture caption; #tags in it become the clip's tags. */

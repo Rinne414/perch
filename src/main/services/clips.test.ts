@@ -48,6 +48,12 @@ describe('addTextClip', () => {
   test('refuses nothing to keep', () => {
     expect(() => addTextClip(db, '   ', NOW)).toThrow()
   })
+
+  test('a memo written by hand can be kept from the start', () => {
+    const memo = addTextClip(db, '週六帶充電線 #家裡', NOW, { kept: true })
+    expect(memo).toMatchObject({ kind: 'text', kept: true, tags: ['家裡'] })
+    expect(getClip(db, memo.id)?.kept).toBe(true)
+  })
 })
 
 describe('imageType', () => {

@@ -37,7 +37,8 @@ function cleanText(text: string): string {
   return trimmed
 }
 
-export function addTextClip(db: DatabaseSync, text: string, now: number): Clip {
+/** Pasted text is temporary; a memo the person wrote is kept from the start (`kept`). */
+export function addTextClip(db: DatabaseSync, text: string, now: number, { kept = false }: { readonly kept?: boolean } = {}): Clip {
   const value = cleanText(text)
   if (!value) throw new Error('Nothing to keep')
   const clip: Clip = {
@@ -49,7 +50,7 @@ export function addTextClip(db: DatabaseSync, text: string, now: number): Clip {
     height: null,
     bytes: null,
     tags: tagsOf(value),
-    kept: false,
+    kept,
     createdAt: now,
     usedAt: now,
   }

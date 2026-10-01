@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { groupClips, matchesFilter, type Clip, type ClipFilter } from '@shared/clips'
-import { ClipCard, ClipFilters, PasteZone, useClips } from '../components/Clips'
+import { ClipCard, ClipFilters, useClips } from '../components/Clips'
+import { StashInput } from '../components/StashInput'
 import { useToast } from '../components/Toast'
 
 const ALL: ClipFilter = { kind: 'all', tag: null, query: '' }
@@ -39,7 +40,7 @@ interface Props {
   readonly dayStartHour: number
 }
 
-/** The float's 暫存: paste to keep, newest first, 保留 on top. */
+/** The float's 暫存: write or paste to keep, newest first, 保留 on top. */
 export function StashTab({ at, dayStartHour }: Props): React.JSX.Element {
   const { payload, error } = useClips()
   const [filter, setFilter] = useState<ClipFilter>(ALL)
@@ -51,7 +52,7 @@ export function StashTab({ at, dayStartHour }: Props): React.JSX.Element {
 
   return (
     <div className="stash">
-      <PasteZone retentionDays={payload.retentionDays} onAdded={onAdded} />
+      <StashInput retentionDays={payload.retentionDays} onAdded={onAdded} />
       {payload.clips.length > 0 && <ClipFilters clips={payload.clips} filter={filter} onChange={setFilter} tags={3} />}
       {groupClips(shown, at, dayStartHour).map((group) => (
         <section className="sec" key={group.key} aria-label={group.label}>
@@ -71,7 +72,7 @@ export function StashTab({ at, dayStartHour }: Props): React.JSX.Element {
       {payload.clips.length === 0 && (
         <div className="empty">
           <p>還沒有暫存的東西。</p>
-          <p className="faint">複製了什麼想先留著，就在這裡按 Ctrl+V。</p>
+          <p className="faint">想記的寫在上面的框裡；複製了什麼想先留著，就在這裡按 Ctrl+V。</p>
         </div>
       )}
       {payload.clips.length > 0 && shown.length === 0 && <p className="faint stash-none">沒有符合的。</p>}

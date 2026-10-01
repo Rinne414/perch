@@ -13,10 +13,10 @@ A small glass window perches on your desktop and shows only what needs you **now
 ## What it does
 
 - **Agents come back to you.** Hooks for Claude Code, Codex, Grok Build and OpenCode report when a session finishes, fails or waits for input. You get a notification, and the session stays in the float until you mark it seen. The **Agent** tab keeps every session of the week — what it was asked, what came back — and a **回去** button copies the command that reopens it in its folder.
-- **A float with three tabs.** **待辦**: today with what is already done, routines due, what comes later and the newest ideas; click a title to rename it, move it or delete it right there. **Agent**: who waits on you and who is still running. **暫存**: what you pasted to keep. **控制台** opens the main window.
+- **A float with three tabs.** **待辦**: today with what is already done, routines due, what comes later and the newest ideas; click a title to rename it, move it or delete it right there. **Agent**: who waits on you and who is still running. **暫存**: memos you wrote and things you pasted to keep. **控制台** opens the main window.
 - **Where every project was left.** The **專案** tab sorts the folders your agents worked in by when you last touched them, with what you last asked and how it went; folders left alone for three days or more turn amber. One click opens the folder.
 - **Agents can leave you work.** **記下來** on an agent card turns its last line into your own task, filed under its project. Agents can also run `perch-hook add "明天 確認 macOS 版能打開"` themselves; 設定 → 讓 agent 記進 Perch has the lines to paste into `CLAUDE.md` or `AGENTS.md` (Perch never edits those files).
-- **暫存 (stash).** Paste text, links or pictures with `Ctrl+V`, or drag pictures in, to keep them for a while; `#tags` sort them. What you have not used for 30 days goes (7, 30, 90 days or never in 設定 → 資料), **保留** keeps one for good. Perch never records the clipboard on its own.
+- **暫存 (stash).** Write a memo in the box at the top (Enter saves, Shift+Enter starts a new line), or paste text, links or pictures with `Ctrl+V` and drag pictures in; `#tags` sort them. A memo you wrote is kept for good. What you pasted goes when you have not used it for 30 days (7, 30, 90 days or never in 設定 → 資料), unless you press **保留**. Perch never records the clipboard on its own.
 - **Claude Code usage limits.** With the optional status line (設定 → Agent 連線 → 額度), the Agent tab shows how much of the 5-hour and 7-day limits is used and when they reset; the float mentions it only once the 5-hour window passes 80%. Needs a Pro or Max plan.
 - **Capture without friction.** `Ctrl+Alt+N` anywhere opens a one-line box (設定 → 快速記錄 changes the keys). Dates are read from what you type, in Chinese or English: `明天下午3點 交報告`, `週五`, `10/2 17:00`. Lines without a date wait in **隨手記** until you give them a day.
 - **Fixed schedules.** Work shifts or classes at fixed weekly times ("週三 16:00–19:00, 週四 18:30–21:30"), each day with its own hours. They show on today's list with a countdown and remind you 30 minutes before (adjustable). Typing `每週四 18:30-21:30 上班`, `每週一到五 9:00-18:00` or `每天 晚上10點 寫日記` in any capture box makes one.
@@ -111,6 +111,7 @@ Development switches (ignored by an installed copy):
 | `TC_SCREENSHOT_VIEW=float\|main\|capture`, `TC_SCREENSHOT_TAB=inbox` | Which window and tab to capture |
 | `TC_SCREENSHOT_PASTE=1` | Runs the real paste command (what `Ctrl+V` does) with the system clipboard before the grab |
 | `TC_SCREENSHOT_JS=<script>` | Run a script in the page first (clicks, typing) |
+| `TC_SCREENSHOT_KEYS=<keys>`, `TC_SCREENSHOT_JS_AFTER=<script>` | After that script, real key presses sent to the page only (text, `{enter}`, `{shift+enter}`, `{esc}`), then a second script to check what they did |
 | `TC_SCREENSHOT_BACKDROP=wallpaper\|light` | Put a known background (the mockups' wallpaper, or a plain light page) behind the glass |
 | `TC_UPDATE_FEED=<url>` | 檢查更新 reads `latest.yml` from this address instead of GitHub; a development run downloads but never installs |
 | `TC_EXPORT_DIR=<folder>` | 匯出 writes here without asking for a folder |
@@ -122,10 +123,10 @@ Why it works the way it does — what was borrowed from Todoist, TickTick, Sunsa
 
 Perch 是給同時跑好幾個 AI agent 的人用的桌面提醒工具，所有資料都只存在自己的電腦裡。
 
-- 浮窗分三個分頁：「待辦」（今天的事、做完的劃掉、之後、隨手記，點標題就能就地改名、改日期、刪除）、「Agent」（在等你的、還在跑的）、「暫存」；「控制台」按鈕打開主視窗。
+- 浮窗分三個分頁：「待辦」（今天的事、做完的劃掉、之後、隨手記，點標題就能就地改名、改日期、刪除）、「Agent」（在等你的、還在跑的）、「暫存」（自己寫的 memo 和貼上的東西）；「控制台」按鈕打開主視窗。
 - 「專案」頁從 agent 紀錄自動整理每個資料夾停在哪：最後一次碰是什麼時候、最後問了什麼、結果如何，三天以上沒碰的會變黃，一鍵開資料夾。
 - Agent 卡片上的「記下來」把它最後一句話變成你的待辦，掛在那個專案下；agent 自己也能跑 `perch-hook add "明天 …"` 記進來（設定 → 讓 agent 記進 Perch 有可以貼進 CLAUDE.md / AGENTS.md 的說明）。
-- 「暫存」：按 Ctrl+V 或把圖片拖進來，文字、連結、圖片都能先放著，用 `#標籤` 分類；30 天沒用到會清掉（可改 7 / 90 天或永不），按「保留」就一直留著。不會自動記錄剪貼簿。
+- 「暫存」：最上面的框可以直接打字記 memo（Enter 存、Shift+Enter 換行），也可以按 Ctrl+V 或把圖片拖進來，文字、連結、圖片都能先放著，用 `#標籤` 分類。自己寫的會一直留著；貼上的 30 天沒用到會清掉（可改 7 / 90 天或永不），按「保留」就一直留著。不會自動記錄剪貼簿。
 - 在任何地方按 `Ctrl+Alt+N` 就能記下一件事，日期可以直接用中文寫：「明天下午3點 交報告」；沒寫日期的會先放進「隨手記」。
 - 固定行程（例如每週三 16:00–19:00、週四 18:30–21:30 上班）會出現在今天的行程，開始前 30 分鐘提醒；直接打「每週四 18:30-21:30 上班」也能建立。
 - 日曆像 Windows 右下角那樣一格一天：點過去的日子看那天做了什麼和總結，也能補記；點未來的日子看行程、截止，或直接加一件事。同一個 project 的 agent 回覆合併成一行，點開才看每一次。

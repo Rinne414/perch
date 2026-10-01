@@ -1,43 +1,76 @@
-/* 暫存: pasted text, links and pictures, in the float and the main window alike. */
-:is(.mw, .float) .paste-zone {
+/* 暫存: written memos, pasted text, links and pictures, in the float and the main window alike. */
+/* The box at the top: write a memo, or paste and drop things in. */
+:is(.mw, .float) .stash-input {
   display: grid;
-  gap: 2px;
-  padding: 12px;
-  border: 1.5px dashed rgba(255, 255, 255, 0.24);
+  gap: 5px;
+}
+
+:is(.mw, .float) .memo-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  padding: 6px 6px 6px 11px;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  text-align: center;
-  color: var(--dim);
-  font-size: 12.5px;
+  background: var(--field);
   transition: border-color var(--fast), background-color var(--fast);
 }
 
-:is(.mw, .float) .paste-zone b {
-  color: var(--text);
-  font-weight: 500;
-}
-
-:is(.mw, .float) .paste-zone small {
-  color: var(--faint);
-  font-size: 11.5px;
-}
-
-:is(.mw, .float) .paste-zone:focus-visible {
-  outline: none;
+:is(.mw, .float) .memo-box:focus-within {
   border-color: rgba(157, 184, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Something is being dragged over it. */
-:is(.mw, .float) .paste-zone.over {
+:is(.mw, .float) .memo-box.over {
   border-color: var(--info);
+  border-style: dashed;
   background: rgba(157, 184, 255, 0.08);
 }
 
-:is(.mw, .float) .paste-zone.wide {
+/* Grows with what is written, up to about eight lines, then scrolls. */
+:is(.mw, .float) .memo-box textarea {
+  field-sizing: content;
+  max-height: calc(8 * 1.5em + 6px);
+  padding: 3px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 13px/1.5 var(--font-ui);
+  resize: none;
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
+:is(.mw, .float) .memo-box textarea:focus {
+  outline: none;
+}
+
+:is(.mw, .float) .memo-box textarea::placeholder {
+  color: var(--faint);
+}
+
+:is(.mw, .float) .memo-box .btn {
+  padding: 4px 13px;
+}
+
+:is(.mw, .float) .memo-hint {
   display: flex;
-  justify-content: center;
-  align-items: baseline;
-  gap: 12px;
-  padding: 10px;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  padding: 0 4px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+:is(.mw, .float) .memo-hint b {
+  color: var(--dim);
+  font-weight: 500;
+}
+
+:is(.mw, .float) .memo-hint .tg {
+  color: var(--info);
 }
 
 :is(.mw, .float) .clip-list {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   clipImageUrl,
   daysLeft,
@@ -33,90 +33,6 @@ export function useClips(): ClipsState {
     return window.api.onChanged(load)
   }, [])
   return state
-}
-
-/** Turns a paste or a drop into clips: pictures become files, words become text. Resolves to what was added. */
-export function useAddClips(): (data: DataTransfer | null) => Promise<Clip[]> {
-  const show = useToast()
-  return useCallback(
-    async (data) => {
-      if (!data) return []
-      const files = [...data.files]
-      const images = files.filter((f) => f.type.startsWith('image/'))
-      const added: Clip[] = []
-      try {
-        for (const file of images) added.push(await window.api.addImageClip(new Uint8Array(await file.arrayBuffer())))
-        // A picture copied from a page also carries its address as text; the picture is what was meant.
-        const text = images.length === 0 ? data.getData('text/plain') : ''
-        if (text.trim()) added.push(await window.api.addTextClip(text))
-      } catch {
-        show('沒有存成功：圖片要是 PNG、JPG、GIF 或 WebP，最大 20 MB')
-        return added
-      }
-      if (files.length > images.length) show('目前只收文字和圖片，其他檔案沒有存')
-      else if (added.length === 0) show('剪貼簿裡沒有文字或圖片')
-      return added
-    },
-    [show],
-  )
-}
-
-const isTyping = (el: EventTarget | null): boolean =>
-  el instanceof HTMLElement && (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')
-
-interface PasteZoneProps {
-  readonly retentionDays: number | null
-  readonly wide?: boolean
-  readonly onAdded?: (clips: Clip[]) => void
-}
-
-/**
- * Where pasted and dropped things land. Ctrl+V works anywhere on the page while this is shown,
- * except in a text field, where it pastes as usual.
- */
-export function PasteZone({ retentionDays, wide = false, onAdded }: PasteZoneProps): React.JSX.Element {
-  const add = useAddClips()
-  const [over, setOver] = useState(false)
-  const take = useCallback(
-    (data: DataTransfer | null) => {
-      void add(data).then((clips) => clips.length > 0 && onAdded?.(clips))
-    },
-    [add, onAdded],
-  )
-  useEffect(() => {
-    const onPaste = (e: ClipboardEvent): void => {
-      if (isTyping(e.target) || e.defaultPrevented) return
-      e.preventDefault()
-      take(e.clipboardData)
-    }
-    window.addEventListener('paste', onPaste)
-    return () => window.removeEventListener('paste', onPaste)
-  }, [take])
-
-  const rule = retentionDays === null ? '會一直留著，要自己刪' : `${retentionDays} 天沒用到會清掉，按「保留」就一直留著`
-  return (
-    <div
-      className={`paste-zone${wide ? ' wide' : ''}${over ? ' over' : ''}`}
-      tabIndex={0}
-      role="region"
-      aria-label="按 Ctrl+V 貼上，或把圖片拖進來"
-      onDragOver={(e) => {
-        e.preventDefault()
-        setOver(true)
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        e.preventDefault()
-        setOver(false)
-        take(e.dataTransfer)
-      }}
-    >
-      <span>
-        <b>Ctrl+V 貼上</b>，或把圖片拖進來
-      </span>
-      <small>{rule}</small>
-    </div>
-  )
 }
 
 function LinkView({ url }: { url: string }): React.JSX.Element {

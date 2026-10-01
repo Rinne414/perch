@@ -73,7 +73,7 @@ export function registerClipHandlers(ctx: AppContext, appInfo: () => unknown): v
   }
 
   ipcMain.handle(CHANNELS.getClips, (): ClipsPayload => ({ clips: listClips(db), retentionDays: ctx.settings().clipRetentionDays }))
-  handle(CHANNELS.addTextClip, (t: unknown) => addTextClip(db, clipText(t), Date.now()))
+  handle(CHANNELS.addTextClip, (t: unknown, kept: unknown) => addTextClip(db, clipText(t), Date.now(), { kept: kept === true }))
   handle(CHANNELS.addImageClip, (b: unknown) => {
     const bytes = imageBytes(b)
     return addImageClip(db, dir, bytes, sizeOf(bytes), Date.now())

@@ -58,6 +58,50 @@ async function showBackdrop(front: BrowserWindow): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, BACKDROP_SETTLE_MS))
 }
 
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
+const KEY_GAP_MS = 60
+const KEY_NAMES: Readonly<Record<string, string>> = { enter: 'Enter', esc: 'Escape' }
+
+/**
+ * TC_SCREENSHOT_KEYS: real key presses sent to the page itself (never through the system, so
+ * nothing reaches other windows). Text goes in as typed; {enter}, {shift+enter} and {esc} press keys.
+ */
+async function typeKeys(win: BrowserWindow, keys: string): Promise<void> {
+  const contents = win.webContents
+  for (const part of keys.split(/(\{[^}]+\})/).filter(Boolean)) {
+    const press = /^\{(shift\+)?(enter|esc)\}$/.exec(part)
+    if (!press) {
+      await contents.insertText(part)
+    } else {
+      const keyCode = KEY_NAMES[press[2]]
+      const modifiers: 'shift'[] = press[1] ? ['shift'] : []
+      contents.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+      if (keyCode === 'Enter') contents.sendInputEvent({ type: 'char', keyCode: '\r', modifiers })
+      contents.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
+    }
+    await sleep(KEY_GAP_MS)
+  }
+}
+
+/** TC_SCREENSHOT_JS, then TC_SCREENSHOT_KEYS, then TC_SCREENSHOT_JS_AFTER (checks on what the keys did). */
+async function runScripts(win: BrowserWindow): Promise<void> {
+  const script = process.env['TC_SCREENSHOT_JS']
+  const keys = process.env['TC_SCREENSHOT_KEYS']
+  const after = process.env['TC_SCREENSHOT_JS_AFTER']
+  if (script) {
+    await win.webContents.executeJavaScript(script)
+    await sleep(SCRIPT_SETTLE_MS)
+  }
+  if (keys) {
+    await typeKeys(win, keys)
+    await sleep(SCRIPT_SETTLE_MS)
+  }
+  if (after) {
+    await win.webContents.executeJavaScript(after)
+    await sleep(SCRIPT_SETTLE_MS)
+  }
+}
+
 /**
  * Development aid: with TC_SCREENSHOT=<file.png> set, print the window's text,
  * grab it from the screen once rendered, and quit. TC_SCREENSHOT_JS runs in the
@@ -70,10 +114,7 @@ export function captureIfRequested(win: BrowserWindow): void {
   win.webContents.once('did-finish-load', () => {
     setTimeout(async () => {
       const script = process.env['TC_SCREENSHOT_JS']
-      if (script) {
-        await win.webContents.executeJavaScript(script)
-        await new Promise((resolve) => setTimeout(resolve, SCRIPT_SETTLE_MS))
-      }
+      await runScripts(win)
       // TC_SCREENSHOT_PASTE=1: run the real paste command (what Ctrl+V does) with the system clipboard.
       if (process.env['TC_SCREENSHOT_PASTE']) {
         win.webContents.paste()

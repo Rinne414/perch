@@ -13,7 +13,7 @@ export interface DayMarks {
   readonly dues: readonly string[]
 }
 
-export type EntryKind = 'done' | 'routine' | 'agent' | 'agent-failed' | 'focus' | 'dropped' | 'manual'
+export type EntryKind = 'done' | 'routine' | 'agent' | 'agent-failed' | 'focus' | 'dropped' | 'manual' | 'power'
 
 /** One line of a day's timeline. */
 export interface TimelineEntry {

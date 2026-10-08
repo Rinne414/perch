@@ -4,6 +4,7 @@ import type { AgentIntegration, HookState, IntegrationsPayload, SourceUsage, Sta
 import type { AppInfo, GlassLevel } from '@shared/ipc'
 import { useToast } from '../components/Toast'
 import { AddCommandSection } from './AddCommand'
+import { PhoneSection } from './PhoneSection'
 import { DataSection, ShortcutRow, UpdateSection } from './Upkeep'
 import './settings.css'
 
@@ -371,6 +372,7 @@ export function SettingsTab(): React.JSX.Element {
       </section>
 
       <GeneralSection info={info} setInfo={setInfo} />
+      <PhoneSection />
       <DataSection info={info} onInfo={setInfo} />
       <UpdateSection info={info} />
     </>

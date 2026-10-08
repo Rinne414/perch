@@ -95,6 +95,7 @@ export type TimelineEventType =
   | 'routine.done'
   | 'agent.status'
   | 'manual'
+  | 'power.off'
 
 export interface TimelineEvent {
   readonly id: number

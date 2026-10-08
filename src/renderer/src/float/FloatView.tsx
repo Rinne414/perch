@@ -4,6 +4,7 @@ import { FLOAT_TABS, type FloatTab, type NowPayload } from '@shared/ipc'
 import type { Recap } from '@shared/recap'
 import { CaptureField } from '../components/CaptureField'
 import { MinusIcon, PanelIcon, PinIcon } from '../components/Icons'
+import { PowerButton, PowerLine, PowerPanel, usePower } from '../components/Power'
 import { ToastProvider } from '../components/Toast'
 import { useNow } from '../hooks/useNow'
 import { AgentTab } from './AgentTab'
@@ -82,6 +83,8 @@ function Tabs({ tab, payload, onPick }: { tab: FloatTab; payload: NowPayload; on
 function FloatBody(): React.JSX.Element {
   const { payload, at, error } = useNow()
   const [tab, pickTab] = useFloatTab()
+  const power = usePower()
+  const [powerOpen, setPowerOpen] = useState(false)
   if (!payload) return <main className="float">{error && <p className="empty">{error}</p>}</main>
 
   const { recap, pinned, dayStartHour } = payload
@@ -98,6 +101,7 @@ function FloatBody(): React.JSX.Element {
           <PanelIcon />
           控制台
         </button>
+        {power?.supported && <PowerButton state={power} open={powerOpen} onToggle={() => setPowerOpen((o) => !o)} />}
         <button
           className={`win${pinned ? ' on' : ''}`}
           aria-label={pinned ? '取消置頂' : '置頂'}
@@ -110,6 +114,9 @@ function FloatBody(): React.JSX.Element {
           <MinusIcon />
         </button>
       </header>
+
+      {power?.supported && powerOpen && <PowerPanel state={power} onClose={() => setPowerOpen(false)} />}
+      {power?.plan && <PowerLine state={power} />}
 
       {recap && (
         <p className="recap">

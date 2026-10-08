@@ -66,6 +66,7 @@ const KIND_LABEL: Readonly<Record<EntryKind, string>> = {
   focus: '專注',
   dropped: '不做了',
   manual: '補記',
+  power: '關機',
 }
 
 /** Keeps a title on its own list line. */

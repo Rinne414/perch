@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { CHANNELS, type Api, type FloatTab, type MainTab, type UpdateStatus } from '@shared/ipc'
+import type { PowerState } from '@shared/power'
 
 /** The Api interface types each call; the bridge only forwards arguments. */
 const invoke =
@@ -31,6 +32,17 @@ const api: Api = {
   startFocus: invoke(CHANNELS.startFocus),
   extendFocus: invoke(CHANNELS.extendFocus),
   stopFocus: invoke(CHANNELS.stopFocus),
+  getPower: invoke(CHANNELS.getPower),
+  armShutdownTimer: invoke(CHANNELS.armShutdownTimer),
+  armShutdownOnGpu: invoke(CHANNELS.armShutdownOnGpu),
+  cancelShutdown: invoke(CHANNELS.cancelShutdown),
+  shutdownNow: invoke(CHANNELS.shutdownNow),
+  readGpus: invoke(CHANNELS.readGpus),
+  getPhone: invoke(CHANNELS.getPhone),
+  setPhoneEnabled: invoke(CHANNELS.setPhoneEnabled),
+  newPhoneCode: invoke(CHANNELS.newPhoneCode),
+  removePhone: invoke(CHANNELS.removePhone),
+  setPhoneServe: invoke(CHANNELS.setPhoneServe),
   getMonth: invoke(CHANNELS.getMonth),
   getDay: invoke(CHANNELS.getDay),
   captureOn: invoke(CHANNELS.captureOn),
@@ -95,6 +107,11 @@ const api: Api = {
     const handler = (_e: unknown, tab: FloatTab): void => listener(tab)
     ipcRenderer.on(CHANNELS.floatTab, handler)
     return () => ipcRenderer.removeListener(CHANNELS.floatTab, handler)
+  },
+  onPower: (listener) => {
+    const handler = (_e: unknown, state: PowerState): void => listener(state)
+    ipcRenderer.on(CHANNELS.powerChanged, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.powerChanged, handler)
   },
 }
 

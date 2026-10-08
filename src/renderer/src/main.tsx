@@ -4,12 +4,14 @@ import { createRoot } from 'react-dom/client'
 import { CaptureView } from './capture/CaptureView'
 import { FloatView } from './float/FloatView'
 import { MainWindow } from './mainwin/MainWindow'
+import { CountdownView } from './off/CountdownView'
 import './styles/glass.css'
 
 const VIEWS = {
   float: FloatView,
   capture: CaptureView,
   main: MainWindow,
+  off: CountdownView,
 } as const
 
 const requested = new URLSearchParams(location.search).get('view')

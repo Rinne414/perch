@@ -1,7 +1,7 @@
 import { app, type BrowserWindow } from 'electron'
 import { join } from 'node:path'
 
-export type View = 'float' | 'capture' | 'main'
+export type View = 'float' | 'capture' | 'main' | 'off'
 
 /** Every window loads the same renderer bundle and picks its screen from `?view=`. */
 export function loadView(win: BrowserWindow, view: View, extra: Record<string, string> = {}): Promise<void> {

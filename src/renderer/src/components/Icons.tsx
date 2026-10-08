@@ -123,6 +123,13 @@ export const PanelIcon = ({ size = 14 }: IconProps): React.JSX.Element => (
   </NavIcon>
 )
 
+export const PowerIcon = ({ size = 14 }: IconProps): React.JSX.Element => (
+  <NavIcon size={size}>
+    <path d="M8 2v5.5" />
+    <path d="M4.8 4.2a5.2 5.2 0 1 0 6.4 0" />
+  </NavIcon>
+)
+
 export const TrashIcon = ({ size = 12 }: IconProps): React.JSX.Element => (
   <NavIcon size={size}>
     <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" />

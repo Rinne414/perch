@@ -1,0 +1,47 @@
+/* 設定 → 手機 */
+
+.mw .card .r.state-r {
+  grid-template-columns: 110px 104px minmax(0, 1fr) auto;
+}
+
+.mw .url {
+  font: 12px/1.4 'Cascadia Mono', Consolas, monospace;
+  color: var(--info);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+
+.mw .qr-box {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  padding: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.mw .qr-box .sub {
+  margin: 4px 0 10px;
+}
+
+.mw .qr {
+  width: 132px;
+  height: 132px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.mw .qr.empty {
+  display: grid;
+  place-items: center;
+  background: var(--field);
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.mw .late-text {
+  color: var(--late);
+}

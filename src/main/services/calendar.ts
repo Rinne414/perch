@@ -34,6 +34,8 @@ export function entryOf(e: TimelineEvent): TimelineEntry | null {
         return 'dropped'
       case 'manual':
         return 'manual'
+      case 'power.off':
+        return 'power'
       default:
         return null
     }
@@ -44,6 +46,7 @@ export function entryOf(e: TimelineEvent): TimelineEntry | null {
     return { ...base, kind, detail: typeof e.data?.['prompt'] === 'string' ? promptTitle(e.data['prompt']) : null }
   }
   if (kind === 'focus') return { ...base, kind, detail: `做了 ${Number(e.data?.['minutes'] ?? 0)} 分` }
+  if (kind === 'power') return { ...base, kind, detail: typeof e.data?.['reason'] === 'string' ? e.data['reason'] : null }
   if (kind === 'manual') return { ...base, kind, hasTime: e.data?.['noTime'] !== true }
   return { ...base, kind }
 }

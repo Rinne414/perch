@@ -284,6 +284,11 @@
   background: var(--wait);
 }
 
+.mw .tl-entry.power .pin {
+  background: transparent;
+  border: 1.5px solid var(--wait);
+}
+
 .mw .tl-entry.manual .pin {
   background: transparent;
   border: 1.5px solid var(--text);

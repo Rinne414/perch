@@ -21,6 +21,8 @@ A small glass window perches on your desktop and shows only what needs you **now
 - **Capture without friction.** `Ctrl+Alt+N` anywhere opens a one-line box (設定 → 快速記錄 changes the keys). Dates are read from what you type, in Chinese or English: `明天下午3點 交報告`, `週五`, `10/2 17:00`. Lines without a date wait in **隨手記** until you give them a day.
 - **Fixed schedules.** Work shifts or classes at fixed weekly times ("週三 16:00–19:00, 週四 18:30–21:30"), each day with its own hours. They show on today's list with a countdown and remind you 30 minutes before (adjustable). Typing `每週四 18:30-21:30 上班`, `每週一到五 9:00-18:00` or `每天 晚上10點 寫日記` in any capture box makes one.
 - **A real calendar.** The month at a glance, like the Windows tray calendar. Pick a day to see what happened (a timeline and a summary, with an agent's many replies in one project folded into one line), fill in what you forgot, or plan something for a day ahead.
+- **Shut down later (Windows).** The power button in the float shuts the computer down in 30 minutes to 3 hours, at a time you type (`23:30`), or once every NVIDIA GPU has stayed at or below 10% for 3, 5, 10 or 15 minutes, for example when a ComfyUI render finishes. A 60-second countdown with **取消關機** comes first, and Perch asks Windows for a normal shutdown (`shutdown /s /t 0`, never forced), so a program with unsaved work can still stop it. A failed GPU reading never counts as idle, and a time missed while the computer slept is dropped rather than run on waking. The plan lives only while Perch runs.
+- **On your phone (Android, through Tailscale).** 設定 → 手機 (off by default) lets a paired phone see the computer, the GPU, agents waiting or running and today's list, write to 今天 / 隨手記 / 暫存, and plan or cancel a shutdown (it still counts down 60 seconds on the computer). Every notification Perch shows is also pushed to phones that turned notifications on. Perch listens on 127.0.0.1 only; [Tailscale](https://tailscale.com) on both devices brings the phone in over HTTPS (`tailscale serve`), at home and away. Pairing is a one-time QR code; each phone gets its own key (the computer keeps only a hash) and can be removed in 設定. The page is added to the home screen from Chrome; pushes go through Google's push service, encrypted.
 - **A note for each day.** Write a line or a page about the day in the calendar; it saves as you type. Optionally Perch writes each day — the note, what got done, what happened — into an [Obsidian](https://obsidian.md) vault as `Perch/<date>.md` (設定 → 資料 → Obsidian).
 - **Start instead of finish.** Break a task into small steps; the float shows the next one. **先做 5 分鐘** starts a five-minute timer on it — no pop-up when it ends, no failure state.
 - **Honest but gentle.** Overdue work is shown as it is, with calm ways out: move it, take the date away, or **不做了** (let it go without deleting it).
@@ -116,6 +118,9 @@ Development switches (ignored by an installed copy):
 | `TC_UPDATE_FEED=<url>` | 檢查更新 reads `latest.yml` from this address instead of GitHub; a development run downloads but never installs |
 | `TC_EXPORT_DIR=<folder>` | 匯出 writes here without asking for a folder |
 | `TC_OBSIDIAN_DIR=<folder>` | 選 Obsidian 資料夾 takes this folder without asking |
+| `TC_POWER_MINUTE_MS=<ms>`, `TC_GPU_FAKE=<file>` | Shutdown timer tests: a shorter minute, and a file holding nvidia-smi output (`NVIDIA GeForce RTX 3090, 4`) read instead of the real GPU |
+| `TC_SHUTDOWN_REAL=1` | A development run really shuts down; without it, it only writes a line to `shutdown-fake.log` in the data folder |
+| `TC_PHONE_PORT=<port>`, `TC_PHONE_PAIR_CODE=<code>` | Phone link tests: another local port (default 47817), and a fixed pairing code that works until used |
 
 Why it works the way it does — what was borrowed from Todoist, TickTick, Sunsama, Amazing Marvin, Goblin Tools, Last Time, Super Productivity, Hindsight and Claude Code's Agent View, and what was left out on purpose — is in [`docs/reference-apps.md`](docs/reference-apps.md).
 
@@ -130,6 +135,8 @@ Perch 是給同時跑好幾個 AI agent 的人用的桌面提醒工具，所有�
 - 在任何地方按 `Ctrl+Alt+N` 就能記下一件事，日期可以直接用中文寫：「明天下午3點 交報告」；沒寫日期的會先放進「隨手記」。
 - 固定行程（例如每週三 16:00–19:00、週四 18:30–21:30 上班）會出現在今天的行程，開始前 30 分鐘提醒；直接打「每週四 18:30-21:30 上班」也能建立。
 - 日曆像 Windows 右下角那樣一格一天：點過去的日子看那天做了什麼和總結，也能補記；點未來的日子看行程、截止，或直接加一件事。同一個 project 的 agent 回覆合併成一行，點開才看每一次。
+- 自動關機（Windows）：浮窗的電源按鈕可以 30 分到 3 小時後關機、打幾點關（23:30），或等每張 NVIDIA 顯示卡都連續 3 / 5 / 10 / 15 分鐘低於 10% 再關（例如 ComfyUI 算完圖）。關機前會先倒數 60 秒，可以取消；用的是一般關機（`shutdown /s /t 0`，不強制），有程式沒存檔時 Windows 會停下來問你。讀不到 GPU 時一律當作還在忙；電腦睡著錯過的時間會取消，不會醒來就關。Perch 關掉，排好的關機也跟著取消。
+- 手機版（Android，透過 Tailscale）：「設定 → 手機」（預設關閉）配對後，手機能看電腦和 GPU、在等你和正在跑的 agent、今天的待辦，記到今天 / 隨手記 / 暫存，也能排或取消關機（電腦上一樣先倒數 60 秒）。Perch 跳的通知會同步推到開了通知的手機。Perch 只在本機 127.0.0.1 上聽，電腦和手機都裝 Tailscale，由 `tailscale serve` 提供 HTTPS 網址，家裡和外面都能用。配對用一次性的 QR code，每支手機有自己的鑰匙（電腦只存雜湊），可以在設定裡移除。用 Chrome 加到主畫面就像 App；推播經過 Google 的推播伺服器，內容是加密的。
 - 每一天都能寫筆記（日記），邊打邊存；也可以選一個 Obsidian 資料夾，每天寫一份 `Perch/日期.md`。
 - Agent 分頁列出這週所有 session：問了什麼、回了什麼，一鍵複製回去的指令。裝上 Claude Code 的狀態列後，也看得到 5 小時和 7 天的額度，5 小時用到 80% 浮窗才會提醒。
 - Windows 為主；Mac 和 Linux 版由 CI 打包，還沒有在真機上試過。

@@ -3,6 +3,8 @@ import type { Clip, ClipsPayload } from './clips'
 import type { IntegrationsPayload } from './integrations'
 import type { MainView, UpcomingEntry } from './mainView'
 import type { NowView } from './now'
+import type { PhoneSettingsPayload } from './phone'
+import type { GpuReading, PowerState } from './power'
 import type { ProjectDetail, ProjectSummary } from './projects'
 import type { QuotaSnapshot, QuotaWindow } from './quota'
 import type { Recap } from './recap'
@@ -17,6 +19,9 @@ export const MAIN_TABS: readonly MainTab[] = ['today', 'inbox', 'stash', 'agents
 /** The float's tabs: what to do, what the agents are up to, and what was pasted to keep. */
 export type FloatTab = 'todo' | 'agents' | 'stash'
 export const FLOAT_TABS: readonly FloatTab[] = ['todo', 'agents', 'stash']
+
+/** A shutdown timer: in so many minutes, or at a typed clock time ("23:30"). */
+export type ShutdownWhen = { readonly minutes: number } | { readonly clock: string }
 
 /** "不排" moves a planned item back to the inbox (unless it has a deadline). */
 export type PlanTarget = 'today' | 'tomorrow' | 'none'
@@ -167,6 +172,22 @@ export interface Api {
   extendFocus(): Promise<void>
   /** Returns the whole minutes that were logged (0 when under a minute). */
   stopFocus(): Promise<number>
+  getPower(): Promise<PowerState>
+  armShutdownTimer(when: ShutdownWhen): Promise<PowerState>
+  /** Shuts down once every GPU stayed at or below 10% for that many minutes (3, 5, 10 or 15). */
+  armShutdownOnGpu(idleMinutes: number): Promise<PowerState>
+  cancelShutdown(): Promise<PowerState>
+  /** 現在關 in the countdown window; does nothing when no countdown runs. */
+  shutdownNow(): Promise<void>
+  /** A live reading for the panel; null when nvidia-smi is missing or failed. */
+  readGpus(): Promise<readonly GpuReading[] | null>
+  getPhone(): Promise<PhoneSettingsPayload>
+  setPhoneEnabled(on: boolean): Promise<PhoneSettingsPayload>
+  /** A new one-time pairing code (and QR code); the old one stops working. */
+  newPhoneCode(): Promise<PhoneSettingsPayload>
+  removePhone(id: string): Promise<PhoneSettingsPayload>
+  /** Turns the Tailscale forwarding to Perch on or off; rejects with what Tailscale said. */
+  setPhoneServe(on: boolean): Promise<PhoneSettingsPayload>
   /** Marks for every day from `from` to `to` (YYYY-MM-DD, inclusive, at most 60 days). */
   getMonth(from: string, to: string): Promise<DayMarks[]>
   getDay(day: string): Promise<DayView>
@@ -246,6 +267,8 @@ export interface Api {
   onNavigate(listener: (tab: MainTab) => void): () => void
   /** A notification was clicked: the float shows the tab it is about. */
   onFloatTab(listener: (tab: FloatTab) => void): () => void
+  /** The planned shutdown changed (armed, GPU reading, countdown, cancelled). */
+  onPower(listener: (state: PowerState) => void): () => void
 }
 
 export const CHANNELS = {
@@ -272,6 +295,18 @@ export const CHANNELS = {
   startFocus: 'focus:start',
   extendFocus: 'focus:extend',
   stopFocus: 'focus:stop',
+  getPower: 'power:get',
+  armShutdownTimer: 'power:timer',
+  armShutdownOnGpu: 'power:gpu',
+  cancelShutdown: 'power:cancel',
+  shutdownNow: 'power:now',
+  readGpus: 'power:gpus',
+  powerChanged: 'power:changed',
+  getPhone: 'phone:get',
+  setPhoneEnabled: 'phone:enabled',
+  newPhoneCode: 'phone:code',
+  removePhone: 'phone:remove',
+  setPhoneServe: 'phone:serve',
   getMonth: 'calendar:month',
   getDay: 'calendar:day',
   captureOn: 'calendar:capture',

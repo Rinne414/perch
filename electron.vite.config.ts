@@ -28,5 +28,14 @@ export default defineConfig({
       },
     },
     plugins: [react()],
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/renderer/index.html'),
+          // The phone page, served to paired phones by the phone link (src/main/phone).
+          phone: resolve(__dirname, 'src/renderer/phone.html'),
+        },
+      },
+    },
   },
 })

@@ -2,6 +2,7 @@ import { app, globalShortcut, type BrowserWindow, type Tray } from 'electron'
 import { basename, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { CHANNELS, MAIN_TABS, type FloatTab, type MainTab } from '@shared/ipc'
+import { timerClock, type PowerState } from '@shared/power'
 import { broadcastChange, settingsReader, type AppContext } from './context'
 import { openDatabase } from './db/connection'
 import { getSetting, setSetting } from './db/settings'
@@ -10,13 +11,15 @@ import { seedIfRequested } from './devSeed'
 import { watchInbox } from './inboxWatcher'
 import { registerIpc } from './ipc'
 import { createLog } from './log'
-import { notify } from './notify'
+import { mirrorNotifications, notify } from './notify'
 import { registerClipScheme, serveClips } from './clipProtocol'
 import { backupsDir, clipsDir, dataDir, hookSetup, logsDir, separateDevProfile } from './paths'
+import { startPower, type PowerControl } from './power'
+import { startPhone, type PhoneControl } from './phone'
 import { startScheduler } from './scheduler'
 import { startDailyBackups, writeBackup } from './services/backup'
 import { createObsidianSync } from './services/obsidian'
-import { createTray } from './tray'
+import { createTray, setTrayShutdown, type TrayActions } from './tray'
 import { createCaptureWindow, toggleCapture } from './windows/capture'
 import { createFloatWindow, readFloatState, saveFloatPinned } from './windows/float'
 import { createMainWindow, focusMainWindow } from './windows/main'
@@ -30,6 +33,8 @@ let tray: Tray | null = null
 let stopScheduler: (() => void) | null = null
 let closeInbox: (() => void) | null = null
 let stopBackups: (() => void) | null = null
+let powerControl: PowerControl | null = null
+let phoneControl: PhoneControl | null = null
 let captureShortcut = ''
 
 const log = createLog(logsDir())
@@ -135,7 +140,17 @@ function start(): void {
   }
   registerIpc(ctx)
   serveClips(database, clipsDir())
-  tray = createTray({ showFloat: () => showFloat(), openMain: () => openMain(), openCapture, quit: () => app.quit() })
+  const trayActions: TrayActions = {
+    showFloat: () => showFloat(),
+    openMain: () => openMain(),
+    openCapture,
+    cancelShutdown: () => powerControl?.power.cancel(),
+    quit: () => app.quit(),
+  }
+  tray = createTray(trayActions)
+  powerControl = startPower(ctx, trayFollowsShutdown(trayActions))
+  phoneControl = startPhone(ctx, powerControl)
+  mirrorNotifications((alert) => phoneControl?.push(alert))
   registerCaptureShortcut(settings().captureShortcut)
   const inbox = watchInbox(ctx, join(dataDir(), 'inbox'))
   closeInbox = inbox.close
@@ -144,6 +159,18 @@ function start(): void {
   showFloat()
   if (floatWin) captureIfRequested(floatWin)
   welcomeOnce(database)
+}
+
+/** The tray menu gets a cancel item while a shutdown is planned; rebuilt only when its words change. */
+function trayFollowsShutdown(actions: TrayActions): (state: PowerState) => void {
+  let shown: string | null = null
+  return (state) => {
+    const plan = state.plan
+    const label = !plan ? null : plan.kind === 'timer' ? timerClock(plan.at, Date.now()) : '等 GPU 閒下來'
+    if (label === shown || !tray) return
+    shown = label
+    setTrayShutdown(tray, actions, label)
+  }
 }
 
 /** The first start opens Settings, where the agents get connected to this copy of the app. */
@@ -169,6 +196,8 @@ if (!app.requestSingleInstanceLock()) {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll()
     stopScheduler?.()
+    powerControl?.stop()
+    phoneControl?.stop()
     stopBackups?.()
     closeInbox?.()
     tray?.destroy()

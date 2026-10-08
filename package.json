@@ -1,7 +1,7 @@
 {
   "name": "perch",
   "productName": "Perch",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "A local-first desktop reminder for people who run AI agents: capture fast, see what needs you now, and look back at what got done.",
   "homepage": "https://github.com/Rinne414/perch",

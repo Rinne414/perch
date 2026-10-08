@@ -4,6 +4,9 @@ import type { AgentStatus } from './types'
 export const AGENT_NAMES: Readonly<Record<string, string>> = {
   'claude-code': 'Claude Code',
   codex: 'Codex',
+  antigravity: 'Antigravity',
+  'antigravity-cli': 'Antigravity CLI',
+  'antigravity-ide': 'Antigravity IDE',
   'gemini-cli': 'Gemini CLI',
   opencode: 'OpenCode',
   'grok-build': 'Grok Build',
@@ -29,6 +32,7 @@ const RESUME: Readonly<Record<string, (id: string) => string>> = {
   codex: (id) => `codex resume ${id}`,
   opencode: (id) => `opencode --session ${id}`,
   'grok-build': (id) => `grok --resume ${id}`,
+  'antigravity-cli': (id) => `agy --conversation ${id}`,
 }
 
 /** Session ids are UUIDs or short slugs; anything else is not pasted into a shell. */

@@ -12,7 +12,7 @@ A small glass window perches on your desktop and shows only what needs you **now
 
 ## What it does
 
-- **Agents come back to you.** Hooks for Claude Code, Codex, Grok Build and OpenCode report when a session finishes, fails or waits for input. You get a notification, and the session stays in the float until you mark it seen. The **Agent** tab keeps every session of the week — what it was asked, what came back — and a **回去** button copies the command that reopens it in its folder.
+- **Agents come back to you.** Hooks for Claude Code, Codex, Antigravity (CLI and IDE), Grok Build and OpenCode report when a session finishes, fails or waits for input. You get a notification, and the session stays in the float until you mark it seen. The **Agent** tab keeps every session of the week — what it was asked, what came back — and a **回去** button copies the command that reopens it in its folder.
 - **A float with three tabs.** **待辦**: today with what is already done, routines due, what comes later and the newest ideas; click a title to rename it, move it or delete it right there. **Agent**: who waits on you and who is still running. **暫存**: memos you wrote and things you pasted to keep. **控制台** opens the main window.
 - **Where every project was left.** The **專案** tab sorts the folders your agents worked in by when you last touched them, with what you last asked and how it went; folders left alone for three days or more turn amber. One click opens the folder.
 - **Agents can leave you work.** **記下來** on an agent card turns its last line into your own task, filed under its project. Agents can also run `perch-hook add "明天 確認 macOS 版能打開"` themselves; 設定 → 讓 agent 記進 Perch has the lines to paste into `CLAUDE.md` or `AGENTS.md` (Perch never edits those files).
@@ -54,7 +54,8 @@ Open the main window (tray menu → 開啟主視窗) → **設定**, then press 
 - The hooks run `node`, so [Node.js](https://nodejs.org) 20 or newer must be on your `PATH` (OpenCode uses a plugin and does not need it).
 - **Codex** only runs hooks you trust: after installing, run `/hooks` inside Codex once and trust `perch`.
 - **Claude Code usage (額度)** is a separate switch. Claude Code only hands its usage limits to its status line command, so Perch sets `statusLine`. If you already have one (ccstatusline, a script of your own), Perch wraps it: it notes the usage, then runs yours with the same input and prints exactly what yours printed, so Claude Code looks the same as before; **移除** puts yours back as it was. Without one, Perch's shows `5h 23% · 7d 41%` under the prompt.
-- Gemini CLI can be installed but has not been verified yet.
+- **Antigravity** (the `agy` CLI and the Antigravity IDE) reads one global `~/.gemini/config/hooks.json`; Perch adds a named hook `perch` there and leaves other named hooks alone. On Windows the hook is a small `perch-hook.cmd` next to that file, because Antigravity passes quoted commands to `cmd` in a way that breaks paths with spaces. Antigravity has no "waiting for you" event, so its sessions show running, done or failed, never 等你回覆. 回去 copies `agy --conversation <id>`.
+- Gemini CLI became Antigravity CLI. 設定 still lists Gemini CLI while an old Perch hook remains in `~/.gemini/settings.json`, so it can be removed.
 
 ### Other agents
 

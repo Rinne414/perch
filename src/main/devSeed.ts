@@ -83,7 +83,7 @@ export function seedIfRequested(db: DatabaseSync, dayStartHour: number): void {
       { v: 1, agent: 'codex', sessionId: 'x1', status: 'done', cwd: cwd('api-server'), title: '加上分頁', at: now - 15 * MIN },
       now,
     )
-    applyAgentEvent(db, { v: 1, agent: 'gemini-cli', sessionId: 'g1', status: 'running', cwd: cwd('docs'), at: now - 5 * MIN }, now)
+    applyAgentEvent(db, { v: 1, agent: 'antigravity-cli', sessionId: 'g1', status: 'running', cwd: cwd('docs'), at: now - 5 * MIN }, now)
     applyAgentEvent(db, { v: 1, agent: 'grok-build', sessionId: 'k1', status: 'running', cwd: cwd('game'), at: now - MIN }, now)
     // Folders left alone for a while, for the 專案 tab: a few days, and more than a month.
     applyAgentEvent(

@@ -5,6 +5,7 @@ import {
   addCommandLine,
   INSTALLABLE,
   install,
+  RETIRED,
   installState,
   isInstallable,
   targetFor,
@@ -44,7 +45,10 @@ export function setStatusline(on: boolean, setup: HookSetup): void {
 
 export function integrationsPayload(db: DatabaseSync, setup: HookSetup): IntegrationsPayload {
   return {
-    agents: INSTALLABLE.map((agent) => integrationOf(agent, setup)),
+    // A retired agent (Gemini CLI) is listed only while our old hook is still there to remove.
+    agents: INSTALLABLE.map((agent) => integrationOf(agent, setup)).filter(
+      (a) => !RETIRED.has(a.agent as InstallableAgent) || a.state === 'installed' || a.state === 'outdated',
+    ),
     sources: agentSourceUsage(db),
     statusline: currentStatusline(setup),
     addCommand: addCommandLine(setup, '明天 確認 macOS 版能打開'),

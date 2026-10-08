@@ -1,29 +1,21 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import type { HookState } from '../shared/integrations'
+import { antigravityHooksFile, antigravityInstalled, antigravityPresent, antigravityState, installAntigravity, uninstallAntigravity } from './antigravity'
+import { hasOurMarker, MARKER, readJson, readText, writeSafely, type Config, type HookSetup } from './configFile'
 
-/** Every command we install contains this, so our entries can be found and removed again. */
-export const MARKER = 'perch-hook'
+export { MARKER, readJson, writeSafely, type Config, type HookSetup }
 
 /**
- * Hooks written before the app was renamed from "Tasks Calendar". They are still
- * recognised, reported as outdated, and replaced (never duplicated) on install.
+ * Agents Perch can connect. Gemini CLI is kept only so its old hooks can still be found and
+ * removed (it became Antigravity CLI); 設定 lists it while such hooks remain.
  */
-const LEGACY_MARKER = 'tasks-calendar-hook'
-
-const hasOurMarker = (text: string): boolean => text.includes(MARKER) || text.includes(LEGACY_MARKER)
-
-export const INSTALLABLE = ['claude-code', 'codex', 'gemini-cli', 'grok-build', 'opencode'] as const
+export const INSTALLABLE = ['claude-code', 'codex', 'antigravity', 'grok-build', 'opencode', 'gemini-cli'] as const
 export type InstallableAgent = (typeof INSTALLABLE)[number]
+/** Shown in 設定 only while our hooks are still in their config. */
+export const RETIRED: ReadonlySet<InstallableAgent> = new Set(['gemini-cli'])
 
 export const isInstallable = (v: string): v is InstallableAgent => (INSTALLABLE as readonly string[]).includes(v)
-
-export interface HookSetup {
-  /** Absolute path of the built hook script (…/perch-hook.js). */
-  readonly cliPath: string
-  readonly inboxDir: string
-  readonly home: string
-}
 
 type Handler = Record<string, unknown>
 interface HookGroup {
@@ -31,7 +23,6 @@ interface HookGroup {
   hooks: Handler[]
 }
 type HooksMap = Record<string, HookGroup[]>
-export type Config = Record<string, unknown>
 
 const commandLine = (s: HookSetup, agent: string): string =>
   `node "${s.cliPath}" hook ${agent} --inbox "${s.inboxDir}"`
@@ -71,7 +62,7 @@ export function withOurHooks(config: Config, ours: HooksMap): Config {
 const group = (handler: Handler, matcher?: string): HookGroup[] => [matcher ? { matcher, hooks: [handler] } : { hooks: [handler] }]
 
 /** Hooks per agent. Event names and payloads were checked against each agent's docs (2026-09). */
-export function hooksFor(agent: Exclude<InstallableAgent, 'opencode'>, s: HookSetup): HooksMap {
+export function hooksFor(agent: Exclude<InstallableAgent, 'opencode' | 'antigravity'>, s: HookSetup): HooksMap {
   switch (agent) {
     case 'claude-code': {
       // Exec form: no shell parsing, so paths with spaces or CJK need no quoting.
@@ -213,6 +204,8 @@ export function targetFor(agent: InstallableAgent, home: string): Target {
       return { file: join(home, '.claude', 'settings.json'), ownFile: false }
     case 'codex':
       return { file: join(home, '.codex', 'hooks.json'), ownFile: false }
+    case 'antigravity':
+      return { file: antigravityHooksFile(home), ownFile: false }
     case 'gemini-cli':
       return { file: join(home, '.gemini', 'settings.json'), ownFile: false }
     case 'grok-build':
@@ -232,11 +225,10 @@ export function targetFor(agent: InstallableAgent, home: string): Target {
 
 /** The agent counts as present when its config folder exists. */
 export function agentPresent(agent: InstallableAgent, home: string): boolean {
+  if (agent === 'antigravity') return antigravityPresent(home)
   const folder = { 'claude-code': '.claude', codex: '.codex', 'gemini-cli': '.gemini', 'grok-build': '.grok', opencode: join('.config', 'opencode') }[agent]
   return existsSync(join(home, folder))
 }
-
-const readText = (file: string | undefined): string => (file && existsSync(file) ? readFileSync(file, 'utf8') : '')
 
 /** The text of our hook's config: the current file, or an own file still under the old name. */
 function configText(agent: InstallableAgent, home: string): string {
@@ -246,6 +238,7 @@ function configText(agent: InstallableAgent, home: string): string {
 }
 
 export function isInstalled(agent: InstallableAgent, home: string): boolean {
+  if (agent === 'antigravity') return antigravityInstalled(home)
   return hasOurMarker(configText(agent, home))
 }
 
@@ -253,6 +246,7 @@ const escapedInJson = (path: string): string => JSON.stringify(path).slice(1, -1
 
 /** Whether our hook is in place and still points at this copy of the app. */
 export function installState(agent: InstallableAgent, s: HookSetup): HookState {
+  if (agent === 'antigravity') return antigravityState(s)
   const text = configText(agent, s.home)
   if (!hasOurMarker(text)) return agentPresent(agent, s.home) ? 'not-installed' : 'no-agent'
   // Only the old name found: it still has to be replaced, wherever it points.
@@ -262,33 +256,13 @@ export function installState(agent: InstallableAgent, s: HookSetup): HookState {
   return paths.every((path) => text.includes(escapedInJson(path))) ? 'installed' : 'outdated'
 }
 
-export function readJson(file: string): Config {
-  if (!existsSync(file)) return {}
-  const text = readFileSync(file, 'utf8').replace(/^﻿/, '')
-  if (!text.trim()) return {}
-  const parsed = JSON.parse(text) as unknown
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`${file} is not a JSON object; left untouched`)
-  }
-  return parsed as Config
-}
-
-/** Writes via a temp file after keeping one backup of the previous version. */
-export function writeSafely(file: string, content: string): void {
-  mkdirSync(dirname(file), { recursive: true })
-  if (existsSync(file)) copyFileSync(file, `${file}.perch.bak`)
-  const tmp = `${file}.perch.tmp`
-  writeFileSync(tmp, content, 'utf8')
-  copyFileSync(tmp, file)
-  rmSync(tmp, { force: true })
-}
-
 /** Deletes an own file only when it is really ours. */
 function removeOwnFile(file: string | undefined): void {
   if (file && hasOurMarker(readText(file))) rmSync(file)
 }
 
 export function install(agent: InstallableAgent, s: HookSetup): string {
+  if (agent === 'antigravity') return installAntigravity(s)
   const { file, legacyFile } = targetFor(agent, s.home)
   removeOwnFile(legacyFile)
   if (agent === 'opencode') {
@@ -305,6 +279,7 @@ export function install(agent: InstallableAgent, s: HookSetup): string {
 }
 
 export function uninstall(agent: InstallableAgent, home: string): string | null {
+  if (agent === 'antigravity') return uninstallAntigravity(home)
   const { file, ownFile, legacyFile } = targetFor(agent, home)
   if (ownFile) {
     const found = [file, legacyFile].filter((f): f is string => !!f && hasOurMarker(readText(f)))

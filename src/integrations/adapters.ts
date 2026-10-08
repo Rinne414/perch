@@ -1,9 +1,10 @@
 import type { AgentEvent } from '../shared/agentEvent'
 import { promptTitle } from '../shared/prompt'
 import type { AgentStatus } from '../shared/types'
+import { antigravityProduct } from './antigravity'
 
 /** Agents that report through command hooks. OpenCode reports through its own plugin instead. */
-export const HOOK_AGENTS = ['claude-code', 'codex', 'gemini-cli', 'grok-build'] as const
+export const HOOK_AGENTS = ['claude-code', 'codex', 'antigravity', 'gemini-cli', 'grok-build'] as const
 export type HookAgent = (typeof HOOK_AGENTS)[number]
 
 export const isHookAgent = (v: string): v is HookAgent => (HOOK_AGENTS as readonly string[]).includes(v)
@@ -29,6 +30,10 @@ const promptOf = (v: unknown): string | undefined => (typeof v === 'string' && v
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined)
 
 interface Mapped {
+  /** Set when one hook serves several products (Antigravity CLI / IDE / 2.0). */
+  readonly agent?: string
+  /** Set when the payload names the folder some other way than `cwd`. */
+  readonly cwd?: string
   readonly status: AgentStatus
   readonly title?: string
   readonly detail?: string
@@ -100,6 +105,48 @@ function geminiCli(p: Payload): Mapped | null {
   }
 }
 
+/** Antigravity answers in Markdown and links files: "[capture.cjs](file:///C:/…)" reads as "capture.cjs". */
+const withoutLinks = (text: unknown): unknown => (typeof text === 'string' ? text.replace(/\[([^\]\n]+)\]\([^)\s]+\)/g, '$1') : text)
+
+/** "C:/Users/me/proj" (how Antigravity writes Windows paths) as "C:\Users\me\proj", like the other agents report. */
+const nativePath = (path: string): string => (/^[A-Za-z]:\//.test(path) ? path.replace(/\//g, '\\') : path)
+
+/**
+ * Antigravity (checked against real `agy` 1.1.28 runs, 2026-10-08): camelCase payloads with no
+ * event name (the hook command passes it, see the CLI's --event), `conversationId`, and the
+ * folder in `workspacePaths`. A turn is PreInvocation (invocationNum 0, again 0 on the next turn),
+ * tool steps, and Stop with `terminationReason` ("NO_TOOL_CALL" when it simply finished).
+ * Antigravity has no event for "waiting for permission", so it never reports needs_input.
+ * `prompt` and `last_reply` are added by the CLI from the transcript.
+ */
+function antigravity(p: Payload): Mapped | null {
+  const agent = antigravityProduct(p['transcriptPath'])
+  const folders = p['workspacePaths']
+  const first = Array.isArray(folders) ? str(folders[0]) : undefined
+  const base = { agent, ...(first ? { cwd: nativePath(first) } : {}) }
+  switch (p['hook_event_name']) {
+    case 'PreInvocation':
+      return p['invocationNum'] === 0 || p['invocationNum'] === undefined
+        ? { ...base, status: 'running', title: promptOf(p['prompt']) }
+        : { ...base, status: 'running' }
+    case 'PostToolUse':
+      return { ...base, status: 'running' }
+    case 'Stop': {
+      // Background work still going: the run is not over yet.
+      if (p['fullyIdle'] === false) return { ...base, status: 'running' }
+      const reason = str(p['terminationReason']) ?? ''
+      const error = firstLine(p['error'])
+      if (error) return { ...base, status: 'failed', detail: error }
+      if (/CANCEL|INTERRUPT|ABORT/i.test(reason)) return { ...base, status: 'cancelled' }
+      if (/MAX|STEP|LIMIT|BUDGET/i.test(reason)) return { ...base, status: 'failed', detail: '步數用完了' }
+      if (/ERROR|FAIL/i.test(reason)) return { ...base, status: 'failed', detail: reason }
+      return { ...base, status: 'done', detail: firstLine(withoutLinks(p['last_reply'])) }
+    }
+    default:
+      return null
+  }
+}
+
 function grokBuild(p: Payload): Mapped | null {
   if (p['subagentType'] !== undefined) return null
   switch (p['hook_event_name']) {
@@ -132,6 +179,7 @@ function grokBuild(p: Payload): Mapped | null {
 const MAPPERS: Record<HookAgent, (p: Payload) => Mapped | null> = {
   'claude-code': claudeCode,
   codex,
+  antigravity,
   'gemini-cli': geminiCli,
   'grok-build': grokBuild,
 }
@@ -140,17 +188,17 @@ const MAPPERS: Record<HookAgent, (p: Payload) => Mapped | null> = {
 export function hookPayloadToEvent(agent: HookAgent, payload: unknown, now: number): AgentEvent | null {
   if (typeof payload !== 'object' || payload === null) return null
   const p = payload as Payload
-  const sessionId = str(p['session_id']) ?? str(p['sessionId'])
+  const sessionId = str(p['session_id']) ?? str(p['sessionId']) ?? str(p['conversationId'])
   if (!sessionId) return null
   const mapped = MAPPERS[agent](p)
   if (!mapped) return null
   return {
     v: 1,
-    agent,
+    agent: mapped.agent ?? agent,
     sessionId,
     status: mapped.status,
     at: now,
-    cwd: str(p['cwd']),
+    cwd: mapped.cwd ?? str(p['cwd']),
     ...(mapped.title ? { title: mapped.title } : {}),
     ...(mapped.detail ? { detail: mapped.detail } : {}),
   }

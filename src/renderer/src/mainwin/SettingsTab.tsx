@@ -29,6 +29,11 @@ const NOTES: Readonly<Record<string, React.ReactNode>> = {
       Codex 只跑你信任過的 hook：每次安裝或更新後，在 Codex 裡輸入 <code>/hooks</code>，信任 perch。
     </>
   ),
+  antigravity: (
+    <>
+      Antigravity CLI（<code>agy</code>）和 IDE 都會記進來。Antigravity 沒有「在等你回覆」的通知，所以只會提醒執行中、做完和失敗。
+    </>
+  ),
 }
 
 function AgentRowSetting({

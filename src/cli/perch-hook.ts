@@ -2,6 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { hookPayloadToEvent, isHookAgent } from '../integrations/adapters'
+import { lastReply, lastUserRequest, readTranscriptTail } from '../integrations/antigravity'
 import { parseJsonText, writeInboxEvent } from '../integrations/inbox'
 import { agentPresent, install, INSTALLABLE, isInstallable, isInstalled, uninstall } from '../integrations/install'
 import { saveQuota } from '../integrations/quota'
@@ -12,7 +13,7 @@ import { quotaFromStatusline, statuslineText } from '../shared/quota'
 
 /*
  * Usage:
- *   node perch-hook.js hook <agent> --inbox <dir>     (called by an agent's hook, payload on stdin)
+ *   node perch-hook.js hook <agent> --inbox <dir> [--event <name>]   (called by an agent's hook, payload on stdin; Antigravity passes the event)
  *   node perch-hook.js statusline claude-code --inbox <dir> [--wrap <file>]   (Claude Code's status line, session data on stdin)
  *   node perch-hook.js add "<text>" --inbox <dir> [--agent <name>] [--cwd <dir>]   (leave the person something to do later)
  *   node perch-hook.js install <agent> --inbox <dir>
@@ -54,15 +55,41 @@ function keepRawIfDebugging(inbox: string, agent: string, raw: string): void {
   writeFileSync(join(dir, `${Date.now()}-${agent}.json`), raw, 'utf8')
 }
 
-async function runHook(agent: string, inbox: string): Promise<void> {
+/**
+ * Antigravity payloads carry no event name and no text: the event comes from the command
+ * (--event), the prompt and the last answer from the end of the transcript it points to.
+ */
+function antigravityPayload(payload: unknown, event: string | undefined): unknown {
+  if (typeof payload !== 'object' || payload === null) return payload
+  const p = payload as Record<string, unknown>
+  const turnStart = event === 'PreInvocation' && (p['invocationNum'] === 0 || p['invocationNum'] === undefined)
+  const needsText = turnStart || event === 'Stop'
+  const lines = needsText ? readTranscriptTail(p['transcriptPath']) : []
+  return {
+    ...p,
+    hook_event_name: event,
+    ...(turnStart ? { prompt: lastUserRequest(lines) } : {}),
+    ...(event === 'Stop' ? { last_reply: lastReply(lines) } : {}),
+  }
+}
+
+/** What Antigravity expects back on stdout: Stop needs a decision ("" lets it stop), the rest an empty object. */
+const antigravityAnswer = (event: string | undefined): string => (event === 'Stop' ? '{"decision":""}' : '{}')
+
+async function runHook(agent: string, inbox: string, hookEvent: string | undefined): Promise<void> {
   try {
     const raw = await readStdin()
     keepRawIfDebugging(inbox, agent, raw)
     if (!isHookAgent(agent)) throw new Error(`unknown agent "${agent}"`)
-    const event = hookPayloadToEvent(agent, parseJsonText(raw), Date.now())
+    const parsed = parseJsonText(raw)
+    const payload = agent === 'antigravity' ? antigravityPayload(parsed, hookEvent) : parsed
+    const event = hookPayloadToEvent(agent, payload, Date.now())
     if (event) writeInboxEvent(inbox, event)
   } catch (err) {
     logHookError(inbox, agent, err)
+  } finally {
+    // Antigravity treats a hook without a JSON answer as failed, so it always gets one.
+    if (agent === 'antigravity') process.stdout.write(antigravityAnswer(hookEvent))
   }
 }
 
@@ -164,7 +191,7 @@ function manage(command: string, agent: string | undefined, args: string[]): num
 async function main(): Promise<void> {
   const [command, agent, ...rest] = process.argv.slice(2)
   if (command === 'hook') {
-    await runHook(agent ?? '', option(rest, '--inbox') ?? join(homedir(), '.perch', 'inbox'))
+    await runHook(agent ?? '', option(rest, '--inbox') ?? join(homedir(), '.perch', 'inbox'), option(rest, '--event'))
     process.exit(0)
   }
   if (command === 'statusline') {

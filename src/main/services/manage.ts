@@ -22,6 +22,7 @@ import {
 } from '../db/items'
 import { transaction } from '../db/transaction'
 import { listProjects } from './projects'
+import { interruptedSessions } from './restore'
 import type { AppSettings } from './settings'
 
 const AGENT_WINDOW_MS = 7 * 86_400_000
@@ -35,6 +36,8 @@ export function getMainPayload(
   settings: AppSettings,
   focus: FocusState | null = null,
   quota: QuotaSnapshot | null = null,
+  /** When the computer started; null where reopening sessions after a restart is not offered. */
+  bootAt: number | null = null,
 ): MainPayload {
   const today = dayKey(now, settings.dayStartHour)
   const view = buildMainView(
@@ -62,6 +65,7 @@ export function getMainPayload(
     focus,
     quota: quota && live.length ? { ...quota, windows: live } : null,
     projects: listProjects(db),
+    interrupted: bootAt === null ? [] : interruptedSessions(db, bootAt),
   }
 }
 

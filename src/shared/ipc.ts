@@ -76,6 +76,16 @@ export interface MainPayload {
   readonly quota: QuotaSnapshot | null
   /** Every folder agents worked in, most recently touched first (hidden ones included and marked). */
   readonly projects: readonly ProjectSummary[]
+  /** Sessions still open in a terminal when the computer restarted (Windows only), newest first. */
+  readonly interrupted: readonly AgentSession[]
+}
+
+/** What 在 Windows Terminal 還原 did. */
+export interface RestoreResult {
+  /** Tabs opened. */
+  readonly opened: number
+  /** Folders that are gone, so their sessions were left out. */
+  readonly missing: readonly string[]
 }
 
 /** How much the glass tints what is behind it: 淡 / 中 / 濃. */
@@ -199,6 +209,10 @@ export interface Api {
   /** Saves the day's note (the diary); an empty text removes it. */
   setDayNote(day: string, text: string): Promise<void>
   acknowledgeAgents(ids: readonly string[]): Promise<void>
+  /** Reopens `open` in one Windows Terminal window (a tab each); `skip` will not be offered again. */
+  restoreSessions(open: readonly string[], skip: readonly string[]): Promise<RestoreResult>
+  /** 略過: these sessions from before the restart will not be offered again. */
+  skipRestore(ids: readonly string[]): Promise<void>
   /** 暫存: everything written or pasted to keep, newest first, and how long unkept ones stay. */
   getClips(): Promise<ClipsPayload>
   /** Pasted text (temporary), or a memo written by hand with `kept` true. */
@@ -314,6 +328,8 @@ export const CHANNELS = {
   removeManualEntry: 'calendar:remove-entry',
   setDayNote: 'calendar:note',
   acknowledgeAgents: 'agent:acknowledge',
+  restoreSessions: 'agent:restore',
+  skipRestore: 'agent:skip-restore',
   getClips: 'clip:list',
   addTextClip: 'clip:add-text',
   addImageClip: 'clip:add-image',

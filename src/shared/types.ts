@@ -124,4 +124,6 @@ export interface AgentSession {
   /** When the session last started waiting on the user (needs input, finished, failed). */
   readonly attentionAt: number | null
   readonly acknowledgedAt: number | null
+  /** When the session itself was closed, or found closed after a restart; null while it may still be open. */
+  readonly endedAt: number | null
 }

@@ -99,6 +99,13 @@ const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX clips_used ON clips (kept, used_at);
   `,
+  // When a session was closed (or found closed after a restart), and when Perch reopened it in a terminal.
+  // Sessions from before this version count as closed, so old history is never offered for reopening.
+  `
+  ALTER TABLE agent_sessions ADD COLUMN ended_at INTEGER;
+  ALTER TABLE agent_sessions ADD COLUMN reopened_at INTEGER;
+  UPDATE agent_sessions SET ended_at = updated_at;
+  `,
 ]
 
 const userVersion = (db: DatabaseSync): number =>

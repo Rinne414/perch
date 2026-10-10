@@ -16,6 +16,7 @@ import { registerClipScheme, serveClips } from './clipProtocol'
 import { backupsDir, clipsDir, dataDir, hookSetup, logsDir, separateDevProfile } from './paths'
 import { startPower, type PowerControl } from './power'
 import { startPhone, type PhoneControl } from './phone'
+import { startRestore } from './restore'
 import { startScheduler } from './scheduler'
 import { startDailyBackups, writeBackup } from './services/backup'
 import { createObsidianSync } from './services/obsidian'
@@ -154,6 +155,7 @@ function start(): void {
   registerCaptureShortcut(settings().captureShortcut)
   const inbox = watchInbox(ctx, join(dataDir(), 'inbox'))
   closeInbox = inbox.close
+  startRestore(ctx)
   stopScheduler = startScheduler(ctx, inbox.drain)
   if (showForScreenshot()) return
   showFloat()

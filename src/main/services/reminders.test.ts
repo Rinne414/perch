@@ -42,6 +42,7 @@ const session = (over: Partial<AgentSession>): AgentSession => ({
   updatedAt: 0,
   attentionAt: at(29, 10),
   acknowledgedAt: null,
+  endedAt: null,
   ...over,
 })
 

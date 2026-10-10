@@ -3,6 +3,7 @@ import type { MainPayload } from '@shared/ipc'
 import { QUOTA_ALERT_PERCENT, QUOTA_LABEL, resetLabel, type QuotaSnapshot } from '@shared/quota'
 import { AgentSection } from '../components/AgentCard'
 import { useAction } from '../components/Toast'
+import { RestoreSection } from './RestoreSection'
 import './agents.css'
 
 /** Claude Code's usage limits as its status line last reported them. */
@@ -33,9 +34,9 @@ function QuotaCard({ quota, at }: { quota: QuotaSnapshot; at: number }): React.J
 
 /** Every agent session of the last week: what it was asked, what came back, and a way back into it. */
 export function AgentsTab({ payload, at }: { payload: MainPayload; at: number }): React.JSX.Element {
-  const { attention, running, recentAgents, quota } = payload
+  const { attention, running, recentAgents, quota, interrupted, dayStartHour } = payload
   const run = useAction()
-  const nothing = attention.length + running.length + recentAgents.length === 0
+  const nothing = attention.length + running.length + recentAgents.length + interrupted.length === 0
   return (
     <div className="agent-tab">
       <header className="ph">
@@ -47,6 +48,7 @@ export function AgentsTab({ payload, at }: { payload: MainPayload; at: number })
           </button>
         )}
       </header>
+      <RestoreSection sessions={interrupted} at={at} dayStartHour={dayStartHour} />
       {quota && <QuotaCard quota={quota} at={at} />}
       <AgentSection id="ag-wait" title="等你處理" note={`${attention.length} 個`} sessions={attention} group="attention" at={at} />
       <AgentSection id="ag-run" title="執行中" note={`${running.length} 個`} sessions={running} group="running" at={at} />

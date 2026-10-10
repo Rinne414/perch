@@ -69,18 +69,46 @@ describe('grok-build', () => {
       status: 'done',
       detail: 'ok',
     })
-    expect(hookPayloadToEvent('grok-build', { ...base, reason: 'shutdown' }, NOW)).toMatchObject({ status: 'cancelled' })
+    expect(hookPayloadToEvent('grok-build', { ...base, reason: 'shutdown' }, NOW)).toMatchObject({ status: 'cancelled', ended: true })
+    expect(hookPayloadToEvent('grok-build', { ...base, reason: 'max_tokens' }, NOW)).not.toHaveProperty('ended')
   })
 
   test('a runtime give-up needs a look; a user interrupt does not', () => {
     const cancelled = { ...base, hook_event_name: 'StopCancelled', reason: 'max_turns', cancelledBy: 'runtime' }
 
     expect(hookPayloadToEvent('grok-build', cancelled, NOW)).toMatchObject({ status: 'failed', detail: 'max_turns' })
-    expect(hookPayloadToEvent('grok-build', { ...cancelled, cancelledBy: 'user' }, NOW)).toMatchObject({ status: 'cancelled' })
+    const interrupted = hookPayloadToEvent('grok-build', { ...cancelled, cancelledBy: 'user' }, NOW)
+    expect(interrupted).toMatchObject({ status: 'cancelled' })
+    // An interrupted turn leaves the session open in its terminal.
+    expect(interrupted).not.toHaveProperty('ended')
   })
 
   test('skips subagent turns', () => {
     expect(hookPayloadToEvent('grok-build', { ...base, subagentType: 'explore' }, NOW)).toBeNull()
+  })
+})
+
+describe('session end', () => {
+  test.each([
+    ['claude-code', { session_id: 's', hook_event_name: 'SessionEnd', reason: 'prompt_input_exit' }],
+    ['codex', { session_id: 's', hook_event_name: 'SessionEnd' }],
+    ['gemini-cli', { session_id: 's', hook_event_name: 'SessionEnd' }],
+    ['grok-build', { sessionId: 's', hookEventName: 'session_end', hook_event_name: 'SessionEnd', reason: 'shutdown' }],
+  ] as const)('%s: SessionEnd says the session closed', (agent, payload) => {
+    expect(hookPayloadToEvent(agent, payload, NOW)).toMatchObject({ status: 'cancelled', ended: true })
+  })
+
+  test('a finished or cancelled turn does not close the session', () => {
+    const claudeStop = hookPayloadToEvent('claude-code', { session_id: 's', hook_event_name: 'Stop' }, NOW)
+    const agyCancel = hookPayloadToEvent(
+      'antigravity',
+      { conversationId: 'c', hook_event_name: 'Stop', terminationReason: 'USER_CANCELLED', transcriptPath: '/u/.gemini/antigravity-cli/brain/c/x.jsonl' },
+      NOW,
+    )
+
+    expect(claudeStop).not.toHaveProperty('ended')
+    expect(agyCancel).toMatchObject({ status: 'cancelled' })
+    expect(agyCancel).not.toHaveProperty('ended')
   })
 })
 

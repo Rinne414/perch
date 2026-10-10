@@ -13,6 +13,7 @@ A small glass window perches on your desktop and shows only what needs you **now
 ## What it does
 
 - **Agents come back to you.** Hooks for Claude Code, Codex, Antigravity (CLI and IDE), Grok Build and OpenCode report when a session finishes, fails or waits for input. You get a notification, and the session stays in the float until you mark it seen. The **Agent** tab keeps every session of the week — what it was asked, what came back — and a **回去** button copies the command that reopens it in its folder.
+- **Pick up where a restart cut you off (Windows).** When the computer restarts, crashes or shuts down (Fast Startup included), or you sign out, while Claude Code, Codex or Grok Build sessions are still open, Perch says so once after it starts. The Agent tab lists the sessions that were open in the 12 hours before you signed in again, all checked; **在 Windows Terminal 還原** opens one Windows Terminal window with a tab per session, each in its folder, resuming its conversation (`claude --resume <id>` and so on). Perch never opens terminals on its own. OpenCode and Antigravity are left out: they do not report a session closing, so a closed session cannot be told from an open one.
 - **A float with three tabs.** **待辦**: today with what is already done, routines due, what comes later and the newest ideas; click a title to rename it, move it or delete it right there. **Agent**: who waits on you and who is still running. **暫存**: memos you wrote and things you pasted to keep. **控制台** opens the main window.
 - **Where every project was left.** The **專案** tab sorts the folders your agents worked in by when you last touched them, with what you last asked and how it went; folders left alone for three days or more turn amber. One click opens the folder.
 - **Agents can leave you work.** **記下來** on an agent card turns its last line into your own task, filed under its project. Agents can also run `perch-hook add "明天 確認 macOS 版能打開"` themselves; 設定 → 讓 agent 記進 Perch has the lines to paste into `CLAUDE.md` or `AGENTS.md` (Perch never edits those files).
@@ -65,7 +66,7 @@ Anything can report to Perch by writing a JSON file into the inbox folder (`%APP
 { "v": 1, "agent": "my-agent", "sessionId": "abc123", "status": "done", "cwd": "C:\\code\\app", "title": "fix the login page" }
 ```
 
-`status` is one of `running`, `needs_input`, `done`, `failed`, `cancelled`. Write to a temporary name first and rename it to `*.json`, so the app never reads half a file.
+`status` is one of `running`, `needs_input`, `done`, `failed`, `cancelled`. Add `"ended": true` when the session itself closed (not just one turn), so Perch knows it is no longer open in a terminal. Write to a temporary name first and rename it to `*.json`, so the app never reads half a file.
 
 To leave the person something to do, write an item instead; `title` is read like the capture box, so a date in it makes a dated task and anything else waits in 隨手記, filed under the project in `cwd`:
 
@@ -140,6 +141,7 @@ Perch 是給同時跑好幾個 AI agent 的人用的桌面提醒工具，所有�
 - 手機版（Android，透過 Tailscale）：「設定 → 手機」（預設關閉）配對後，手機能看電腦和 GPU、在等你和正在跑的 agent、今天的待辦，記到今天 / 隨手記 / 暫存，也能排或取消關機（電腦上一樣先倒數 60 秒）。Perch 跳的通知會同步推到開了通知的手機。Perch 只在本機 127.0.0.1 上聽，電腦和手機都裝 Tailscale，由 `tailscale serve` 提供 HTTPS 網址，家裡和外面都能用。配對用一次性的 QR code，每支手機有自己的鑰匙（電腦只存雜湊），可以在設定裡移除。用 Chrome 加到主畫面就像 App；推播經過 Google 的推播伺服器，內容是加密的。
 - 每一天都能寫筆記（日記），邊打邊存；也可以選一個 Obsidian 資料夾，每天寫一份 `Perch/日期.md`。
 - Agent 分頁列出這週所有 session：問了什麼、回了什麼，一鍵複製回去的指令。裝上 Claude Code 的狀態列後，也看得到 5 小時和 7 天的額度，5 小時用到 80% 浮窗才會提醒。
+- 重開機、當機、關機（含快速啟動）或登出後（Windows）：Claude Code、Codex、Grok Build 還開著的 session，Perch 啟動後會通知一次；Agent 分頁列出這次登入前 12 小時內還開著的 session（預設全勾），按「在 Windows Terminal 還原」就開一個視窗、每個 session 一個分頁，在原本的資料夾接回對話。Perch 不會自己打開終端機。OpenCode 和 Antigravity 不會回報 session 關閉，分不出開著還是關了，所以不列。
 - Windows 為主；Mac 和 Linux 版由 CI 打包，還沒有在真機上試過。
 - 不會催你、不算連續天數；做不到的事可以「不做了」，紀錄還會留著。
 - 每天自動備份一份資料庫，更新前也會先備份；設定 → 匯出 可以存成 JSON 和 Markdown。

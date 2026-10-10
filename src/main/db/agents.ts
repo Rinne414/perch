@@ -19,6 +19,7 @@ interface SessionRow {
   updated_at: number
   attention_at: number | null
   acknowledged_at: number | null
+  ended_at: number | null
 }
 
 const toSession = (r: SessionRow): AgentSession => ({
@@ -34,6 +35,7 @@ const toSession = (r: SessionRow): AgentSession => ({
   updatedAt: r.updated_at,
   attentionAt: r.attention_at,
   acknowledgedAt: r.acknowledged_at,
+  endedAt: r.ended_at,
 })
 
 export function getAgentSession(db: DatabaseSync, id: string): AgentSession | null {
@@ -44,17 +46,24 @@ export function getAgentSession(db: DatabaseSync, id: string): AgentSession | nu
 
 /**
  * Records one status report. Events older than what is stored are ignored, so
- * hooks that finish out of order cannot move a session backwards.
+ * hooks that finish out of order cannot move a session backwards. A report that the
+ * session closed (`ended`) marks it closed; any later report means it was reopened.
  */
 export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): AgentSession {
   const id = `${e.agent}:${e.sessionId}`
   const at = e.at ?? now
+  const endedAt = e.ended ? at : null
   return transaction(db, () => {
     const prev = getAgentSession(db, id)
-    if (prev && at < prev.updatedAt) return prev
+    if (prev && at < Math.max(prev.updatedAt, prev.endedAt ?? 0)) return prev
     // A session that closes right after finishing (headless runs, background agents)
     // still has a result worth looking at, so its end does not wipe the result.
-    if (prev && e.status === 'cancelled' && (prev.status === 'done' || prev.status === 'failed')) return prev
+    if (prev && e.status === 'cancelled' && (prev.status === 'done' || prev.status === 'failed')) {
+      // Still a report: one without `ended` means the session is open (again).
+      if (endedAt === prev.endedAt) return prev
+      db.prepare('UPDATE agent_sessions SET ended_at = ? WHERE id = ?').run(endedAt, id)
+      return { ...prev, endedAt }
+    }
 
     const statusChanged = prev?.status !== e.status
     const wantsPerson = ATTENTION_STATUSES.has(e.status)
@@ -71,14 +80,15 @@ export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): A
       updatedAt: at,
       attentionAt,
       acknowledgedAt: prev?.acknowledgedAt ?? null,
+      endedAt,
     }
     db.prepare(
       `INSERT INTO agent_sessions (id, agent, session_id, cwd, title, status, detail, started_at,
-         updated_at, attention_at, acknowledged_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         updated_at, attention_at, acknowledged_at, ended_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (id) DO UPDATE SET cwd = excluded.cwd, title = excluded.title,
          status = excluded.status, detail = excluded.detail, updated_at = excluded.updated_at,
-         attention_at = excluded.attention_at`,
+         attention_at = excluded.attention_at, ended_at = excluded.ended_at`,
     ).run(
       next.id,
       next.agent,
@@ -91,6 +101,7 @@ export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): A
       next.updatedAt,
       next.attentionAt,
       next.acknowledgedAt,
+      next.endedAt,
     )
     if (statusChanged && (e.status === 'done' || e.status === 'failed')) {
       const where = projectName(next.cwd)
@@ -158,4 +169,48 @@ export function isKnownWorkFolder(db: DatabaseSync, cwd: string): boolean {
 
 export function deleteAgentSessionsByAgent(db: DatabaseSync, agent: string): number {
   return Number(db.prepare('DELETE FROM agent_sessions WHERE agent = ?').run(agent).changes)
+}
+
+/** When a session last showed life: its last report, or Perch reopening it in a terminal. */
+const LAST_OPEN = 'MAX(updated_at, COALESCE(reopened_at, 0))'
+
+/**
+ * Sessions that may still have been open in a terminal at `before` (a restart): never reported
+ * closing, last seen between `from` and `before`, in a known folder, of one of `agents`. Newest first.
+ */
+export function listOpenSessions(
+  db: DatabaseSync,
+  from: number,
+  before: number,
+  agents: readonly string[],
+  limit: number,
+): AgentSession[] {
+  if (agents.length === 0) return []
+  const rows = db
+    .prepare(
+      `SELECT * FROM agent_sessions
+       WHERE ended_at IS NULL AND cwd IS NOT NULL AND cwd <> ''
+         AND agent IN (${agents.map(() => '?').join(', ')})
+         AND ${LAST_OPEN} >= ? AND ${LAST_OPEN} < ?
+       ORDER BY ${LAST_OPEN} DESC
+       LIMIT ?`,
+    )
+    .all(...agents, from, before, limit) as unknown as SessionRow[]
+  return rows.map(toSession)
+}
+
+/** Closed by a restart and not reopened: stops them from being offered again. */
+export function markSessionsEnded(db: DatabaseSync, ids: readonly string[], at: number): void {
+  const stmt = db.prepare('UPDATE agent_sessions SET ended_at = ? WHERE id = ? AND ended_at IS NULL')
+  transaction(db, () => {
+    for (const id of ids) stmt.run(at, id)
+  })
+}
+
+/** Perch opened these in a terminal again: they count as open from `at` until they report closing. */
+export function markSessionsReopened(db: DatabaseSync, ids: readonly string[], at: number): void {
+  const stmt = db.prepare('UPDATE agent_sessions SET reopened_at = ? WHERE id = ?')
+  transaction(db, () => {
+    for (const id of ids) stmt.run(at, id)
+  })
 }

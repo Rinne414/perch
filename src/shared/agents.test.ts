@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { resumeCommand } from './agents'
+import { resumeArgs, resumeCommand } from './agents'
 
 const session = (agent: string, sessionId: string, cwd: string | null = 'L:\\code\\my app') => ({ agent, sessionId, cwd })
 
@@ -21,5 +21,19 @@ describe('resumeCommand', () => {
     expect(resumeCommand(session('claude-code', 'x; rm -rf ~'))).toBeNull()
     expect(resumeCommand(session('claude-code', 'ok', "C:\\a'; calc; '"))).toBe('claude --resume ok')
     expect(resumeCommand(session('kiro', 'abc'))).toBeNull()
+  })
+})
+
+describe('resumeArgs', () => {
+  test('the program and its arguments, ready for a terminal without a shell', () => {
+    expect(resumeArgs({ agent: 'claude-code', sessionId: 'abc-1' })).toEqual(['claude', '--resume', 'abc-1'])
+    expect(resumeArgs({ agent: 'codex', sessionId: 'abc' })).toEqual(['codex', 'resume', 'abc'])
+  })
+
+  test('an id that could read as an option, or an agent name from Object, gets nothing', () => {
+    expect(resumeArgs({ agent: 'claude-code', sessionId: '--dangerously-skip-permissions' })).toBeNull()
+    expect(resumeArgs({ agent: 'claude-code', sessionId: '.hidden' })).toBeNull()
+    expect(resumeArgs({ agent: 'constructor', sessionId: 'abc' })).toBeNull()
+    expect(resumeArgs({ agent: 'toString', sessionId: 'abc' })).toBeNull()
   })
 })

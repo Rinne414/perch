@@ -37,7 +37,12 @@ interface Mapped {
   readonly status: AgentStatus
   readonly title?: string
   readonly detail?: string
+  /** Only for the session closing, never for one interrupted turn. */
+  readonly ended?: true
 }
+
+/** The session was closed: what SessionEnd means for every agent that has it. */
+const SESSION_END: Mapped = { status: 'cancelled', ended: true }
 
 function claudeCode(p: Payload): Mapped | null {
   // Grok Build also runs hooks from ~/.claude/settings.json; its own hook reports those turns.
@@ -59,7 +64,7 @@ function claudeCode(p: Payload): Mapped | null {
       return type && waiting.includes(type) ? { status: 'needs_input', detail: firstLine(p['message']) } : null
     }
     case 'SessionEnd':
-      return { status: 'cancelled' }
+      return SESSION_END
     default:
       return null
   }
@@ -80,7 +85,7 @@ function codex(p: Payload): Mapped | null {
       return { status: 'needs_input', detail: what ?? (tool ? `要使用 ${tool}` : undefined) }
     }
     case 'SessionEnd':
-      return { status: 'cancelled' }
+      return SESSION_END
     default:
       return null
   }
@@ -99,7 +104,7 @@ function geminiCli(p: Payload): Mapped | null {
         ? { status: 'needs_input', detail: firstLine(p['message']) }
         : null
     case 'SessionEnd':
-      return { status: 'cancelled' }
+      return SESSION_END
     default:
       return null
   }
@@ -155,7 +160,8 @@ function grokBuild(p: Payload): Mapped | null {
     case 'PostToolUse':
       return { status: 'running' }
     case 'Stop':
-      // A second Stop fires when the session closes; only "end_turn" is a finished turn.
+      // A second Stop ("shutdown", after SessionEnd) fires when the session closes; only "end_turn" is a finished turn.
+      if (p['reason'] === 'shutdown') return SESSION_END
       if (p['reason'] !== undefined && p['reason'] !== 'end_turn') return { status: 'cancelled' }
       return { status: 'done', detail: firstLine(p['lastAssistantMessage']) }
     case 'StopFailure':
@@ -170,7 +176,7 @@ function grokBuild(p: Payload): Mapped | null {
         ? { status: 'needs_input', detail: firstLine(p['message']) }
         : null
     case 'SessionEnd':
-      return { status: 'cancelled' }
+      return SESSION_END
     default:
       return null
   }
@@ -201,5 +207,6 @@ export function hookPayloadToEvent(agent: HookAgent, payload: unknown, now: numb
     cwd: mapped.cwd ?? str(p['cwd']),
     ...(mapped.title ? { title: mapped.title } : {}),
     ...(mapped.detail ? { detail: mapped.detail } : {}),
+    ...(mapped.ended ? { ended: true } : {}),
   }
 }

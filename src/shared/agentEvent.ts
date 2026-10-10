@@ -17,6 +17,11 @@ export interface AgentEvent {
   readonly title?: string
   /** What the agent is waiting for or why it failed. */
   readonly detail?: string
+  /**
+   * The session itself was closed (Claude Code's SessionEnd), not just one turn. Without it
+   * Perch cannot tell a session closed after finishing from one still open in a terminal.
+   */
+  readonly ended?: boolean
 }
 
 /**
@@ -69,6 +74,7 @@ export function parseAgentEvent(raw: unknown): AgentEvent | null {
     cwd: shortText(r['cwd']),
     title: shortText(r['title']),
     detail: shortText(r['detail']),
+    ...(r['ended'] === true ? { ended: true } : {}),
   }
 }
 

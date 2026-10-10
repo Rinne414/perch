@@ -57,6 +57,7 @@ import { captureForProject, projectDetail, projectFolder, setProjectHidden } fro
 import { captureText, dismissRecap, getNowPayload, postponeItem } from './services/now'
 import { recordRoutine, removeRoutineRecord, routineHistory } from './services/routines'
 import { updateSettings } from './services/settings'
+import { restoreBootAt } from './restore'
 
 const MAX_ID = 128
 const MAX_TEXT = 2000
@@ -369,7 +370,7 @@ export function registerIpc(ctx: AppContext): void {
   ipcMain.handle(CHANNELS.getNow, () =>
     getNowPayload(db, Date.now(), ctx.settings(), ctx.isFloatPinned(), focus.current(db), quota()),
   )
-  ipcMain.handle(CHANNELS.getMain, () => getMainPayload(db, Date.now(), ctx.settings(), focus.current(db), quota()))
+  ipcMain.handle(CHANNELS.getMain, () => getMainPayload(db, Date.now(), ctx.settings(), focus.current(db), quota(), restoreBootAt()))
   registerItemHandlers(ctx, focus)
   registerIntegrationHandlers(ctx)
   registerAppHandlers(ctx)

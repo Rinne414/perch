@@ -48,6 +48,7 @@ function session(over: Partial<AgentSession>): AgentSession {
     updatedAt: NOW - 60_000,
     attentionAt: null,
     acknowledgedAt: null,
+    endedAt: null,
     ...over,
   }
 }

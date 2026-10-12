@@ -13,8 +13,13 @@ export interface AgentEvent {
   /** Epoch milliseconds; the ingest time is used when missing. */
   readonly at?: number
   readonly cwd?: string
-  /** Something a person recognises the session by, e.g. its first prompt. */
+  /** The prompt that started the current turn. */
   readonly title?: string
+  /**
+   * The agent's own name for the session, such as Claude Code's session title. Without one
+   * Perch names a session after its first prompt.
+   */
+  readonly name?: string
   /** What the agent is waiting for or why it failed. */
   readonly detail?: string
   /**
@@ -54,6 +59,9 @@ const shortText = (v: unknown): string | undefined => {
   return s ? s.slice(0, MAX_TEXT) : undefined
 }
 
+/** Line breaks, tabs and control characters become single spaces. */
+const oneLine = (v: string): string => v.replace(/[\s\p{Cc}]+/gu, ' ').trim()
+
 /** Validates untrusted input (inbox files). Returns null when it is not a usable event. */
 export function parseAgentEvent(raw: unknown): AgentEvent | null {
   if (typeof raw !== 'object' || raw === null) return null
@@ -73,6 +81,7 @@ export function parseAgentEvent(raw: unknown): AgentEvent | null {
     at: timestamp(r['at']),
     cwd: shortText(r['cwd']),
     title: shortText(r['title']),
+    ...(typeof r['name'] === 'string' && r['name'].trim() ? { name: oneLine(r['name']).slice(0, MAX_TITLE) } : {}),
     detail: shortText(r['detail']),
     ...(r['ended'] === true ? { ended: true } : {}),
   }

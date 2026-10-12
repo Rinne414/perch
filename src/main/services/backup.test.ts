@@ -69,6 +69,7 @@ describe('opening a database', () => {
     // A database from before the day notes, item projects, clips and closed sessions existed.
     const path = join(dir, 'old.db')
     const old = openDatabase(path)
+    old.exec('ALTER TABLE agent_sessions DROP COLUMN name')
     old.exec('ALTER TABLE agent_sessions DROP COLUMN reopened_at')
     old.exec('ALTER TABLE agent_sessions DROP COLUMN ended_at')
     old.exec('DROP TABLE clips')

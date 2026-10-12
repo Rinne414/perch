@@ -60,73 +60,54 @@
   background: var(--wait);
 }
 
-/* After a restart: the sessions that were still open, to reopen in Windows Terminal. Amber like anything that waits on the person. */
-.mw .restore {
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px 12px 12px;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--wait);
-  border-radius: 10px;
-  background: rgba(255, 207, 107, 0.06);
-}
-
-.mw .restore-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-}
-
-.mw .restore-head h2 {
-  font: 600 14px var(--font-display);
-}
-
-.mw .restore-row {
+/* After a restart: how many sessions it cut off, and the way into the reopen window. Amber like anything that waits on the person. */
+.mw .rs-line {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
-  align-items: start;
-  padding: 6px 8px;
-  border-radius: var(--radius-row);
-  cursor: pointer;
-  transition: background-color var(--fast), opacity var(--fast);
+  align-items: center;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid rgba(255, 207, 107, 0.28);
+  border-radius: 9px;
+  background: rgba(255, 207, 107, 0.1);
+  font-size: 12.5px;
 }
 
-.mw .restore-row:hover {
-  background: var(--hover);
+.mw .rs-line > svg {
+  color: var(--wait);
 }
 
-.mw .restore-row:has(input:not(:checked)) {
-  opacity: 0.55;
+.mw .rs-line .t {
+  color: var(--wait);
+  font-weight: 500;
 }
 
-.mw .restore-row input {
-  width: 15px;
-  height: 15px;
-  margin: 2px 0 0;
-  accent-color: var(--wait);
-  cursor: inherit;
+.mw .rs-line .sub {
+  font-size: 11.5px;
 }
 
-.mw .restore-row .main {
-  display: grid;
-  gap: 1px;
-}
-
-.mw .restore-row .when {
-  white-space: nowrap;
-}
-
-.mw .restore-acts {
+/* Runs other programs started for one answer: one quiet line until opened. */
+.mw .fold-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 8px;
-  padding-left: 8px;
+  gap: 4px 10px;
+  padding: 7px 10px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-row);
+  font-size: 12.5px;
+  color: var(--dim);
 }
 
-.mw .restore-acts .sub {
+.mw .fold-row .sub {
   font-size: 11.5px;
   color: var(--faint);
+}
+
+.mw .fold-row .push {
+  margin-left: auto;
+}
+
+.mw .agent-fold ul {
+  margin-top: 4px;
 }

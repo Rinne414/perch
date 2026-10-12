@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'vitest'
-import { parseItemMessage } from './agentEvent'
+import { parseAgentEvent, parseItemMessage } from './agentEvent'
+
+describe('parseAgentEvent: name', () => {
+  test("keeps the agent's own name for the session, trimmed; drops an empty or non-text one", () => {
+    const base = { v: 1, agent: 'claude-code', sessionId: 's1', status: 'done' }
+    expect(parseAgentEvent({ ...base, name: '  清理垃圾資料夾 ' })?.name).toBe('清理垃圾資料夾')
+    expect(parseAgentEvent({ ...base, name: '   ' })).not.toHaveProperty('name')
+    expect(parseAgentEvent({ ...base, name: 42 })).not.toHaveProperty('name')
+    expect(parseAgentEvent({ ...base, name: '第一行\n第二行\t\u0007結尾' })?.name).toBe('第一行 第二行 結尾')
+  })
+})
 
 describe('parseItemMessage', () => {
   test('keeps what an agent asked to be noted, trimmed', () => {

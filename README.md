@@ -12,8 +12,8 @@ A small glass window perches on your desktop and shows only what needs you **now
 
 ## What it does
 
-- **Agents come back to you.** Hooks for Claude Code, Codex, Antigravity (CLI and IDE), Grok Build and OpenCode report when a session finishes, fails or waits for input. You get a notification, and the session stays in the float until you mark it seen. The **Agent** tab keeps every session of the week — what it was asked, what came back — and a **回去** button copies the command that reopens it in its folder.
-- **Pick up where a restart cut you off (Windows).** When the computer restarts, crashes or shuts down (Fast Startup included), or you sign out, while Claude Code, Codex or Grok Build sessions are still open, Perch says so once after it starts. The Agent tab lists the sessions that were open in the 12 hours before you signed in again, all checked; **在 Windows Terminal 還原** opens one Windows Terminal window with a tab per session, each in its folder, resuming its conversation (`claude --resume <id>` and so on). Perch never opens terminals on its own. OpenCode and Antigravity are left out: they do not report a session closing, so a closed session cannot be told from an open one.
+- **Agents come back to you.** Hooks for Claude Code, Codex, Antigravity (CLI and IDE), Grok Build and OpenCode report when a session finishes, fails or waits for input. You get a notification, and the session waits under **等你處理** until you answer it in its terminal, close it, or mark it seen; a session that closed, or whose terminal went away with a restart, no longer counts. Sessions go by the name the agent gave them (Claude Code's session title, the one `/resume` lists), else their first prompt. The **Agent** tab keeps every session of the week — what it was asked, what came back — with runs other programs started for one answer (`claude -p` from a script) folded into one line, and a **回去** button copies the command that reopens a session in its folder.
+- **Pick up where a restart cut you off (Windows).** The **接回 Agent session** window lists the Claude Code, Codex and Grok Build sessions that were still open when the computer went down, then the ones you closed in the last 12 hours (再早一點: 3 days); sessions open now are never listed. **在 Windows Terminal 接回** opens one Windows Terminal window with a tab per checked session, each in its folder, resuming its conversation (`claude --resume <id>` and so on). After a restart Perch reads the Windows event log and says once how the computer went down: after a crash, power loss, or a restart by Windows Update or an installer, the sessions that were open come checked; after you shut down, restarted or signed out yourself (or a `shutdown` command did), nothing is checked and you pick. Open the window any time from the taskbar icon's menu, the tray menu, the Agent tab, or a desktop shortcut it can make (`Perch.exe --restore`). Perch never opens terminals on its own. OpenCode and Antigravity are left out: they do not report a session closing, so a closed session cannot be told from an open one.
 - **A float with three tabs.** **待辦**: today with what is already done, routines due, what comes later and the newest ideas; click a title to rename it, move it or delete it right there. **Agent**: who waits on you and who is still running. **暫存**: memos you wrote and things you pasted to keep. **控制台** opens the main window.
 - **Where every project was left.** The **專案** tab sorts the folders your agents worked in by when you last touched them, with what you last asked and how it went; folders left alone for three days or more turn amber. One click opens the folder.
 - **Agents can leave you work.** **記下來** on an agent card turns its last line into your own task, filed under its project. Agents can also run `perch-hook add "明天 確認 macOS 版能打開"` themselves; 設定 → 讓 agent 記進 Perch has the lines to paste into `CLAUDE.md` or `AGENTS.md` (Perch never edits those files).
@@ -66,7 +66,7 @@ Anything can report to Perch by writing a JSON file into the inbox folder (`%APP
 { "v": 1, "agent": "my-agent", "sessionId": "abc123", "status": "done", "cwd": "C:\\code\\app", "title": "fix the login page" }
 ```
 
-`status` is one of `running`, `needs_input`, `done`, `failed`, `cancelled`. Add `"ended": true` when the session itself closed (not just one turn), so Perch knows it is no longer open in a terminal. Write to a temporary name first and rename it to `*.json`, so the app never reads half a file.
+`status` is one of `running`, `needs_input`, `done`, `failed`, `cancelled`. Add `"ended": true` when the session itself closed (not just one turn), so Perch knows it is no longer open in a terminal, and `"name"` for your own name of the session (otherwise the first `title` names it). Write to a temporary name first and rename it to `*.json`, so the app never reads half a file.
 
 To leave the person something to do, write an item instead; `title` is read like the capture box, so a date in it makes a dated task and anything else waits in 隨手記, filed under the project in `cwd`:
 
@@ -78,7 +78,7 @@ To leave the person something to do, write an item instead; `title` is read like
 
 ## Your data
 
-Everything lives in Perch's data folder — `%APPDATA%\Perch` on Windows, `~/Library/Application Support/Perch` on macOS, `~/.config/Perch` on Linux: a SQLite database (`tasks.db`), the agent inbox, `backups` and `logs`. From an agent report Perch keeps the status, the project folder, the first line of your prompt as a title, and one line of detail (the agent's last reply, what it is waiting for, or the error). 設定 → 按來源清除資料 deletes everything one agent wrote.
+Everything lives in Perch's data folder — `%APPDATA%\Perch` on Windows, `~/Library/Application Support/Perch` on macOS, `~/.config/Perch` on Linux: a SQLite database (`tasks.db`), the agent inbox, `backups` and `logs`. From an agent report Perch keeps the status, the project folder, the session's name (Claude Code's title for it, read from its transcript, or your first prompt), the first line of your latest prompt, and one line of detail (the agent's last reply, what it is waiting for, or the error). 設定 → 按來源清除資料 deletes everything one agent wrote.
 
 - **Backups.** `backups\tasks-<date>_<time>.db` once a day (the last 7 are kept), and `…-before-update.db` right before a new version changes the database (the last 3). To go back to one, quit Perch from the tray, delete `tasks.db`, `tasks.db-wal` and `tasks.db-shm`, and copy the backup in as `tasks.db`.
 - **Log.** `logs\perch.log` records errors and app events (start, update, backup), never task titles or prompts. 設定 → 回報問題 opens a GitHub issue with the version filled in; read the log before attaching it.
@@ -112,7 +112,7 @@ Development switches (ignored by an installed copy):
 | `TC_AGENT_HOME=<folder>` | Hook install / remove edits a fake home folder, never your real agent configs |
 | `TC_SEED=1` | Fill an empty database with sample data |
 | `TC_SCREENSHOT=<file.png>` | Grab the window from the screen once rendered, print its text, and quit |
-| `TC_SCREENSHOT_VIEW=float\|main\|capture`, `TC_SCREENSHOT_TAB=inbox` | Which window and tab to capture |
+| `TC_SCREENSHOT_VIEW=float\|main\|capture\|restore`, `TC_SCREENSHOT_TAB=inbox` | Which window and tab to capture |
 | `TC_SCREENSHOT_PASTE=1` | Runs the real paste command (what `Ctrl+V` does) with the system clipboard before the grab |
 | `TC_SCREENSHOT_JS=<script>` | Run a script in the page first (clicks, typing) |
 | `TC_SCREENSHOT_KEYS=<keys>`, `TC_SCREENSHOT_JS_AFTER=<script>` | After that script, real key presses sent to the page only (text, `{enter}`, `{shift+enter}`, `{esc}`), then a second script to check what they did |
@@ -123,6 +123,8 @@ Development switches (ignored by an installed copy):
 | `TC_POWER_MINUTE_MS=<ms>`, `TC_GPU_FAKE=<file>` | Shutdown timer tests: a shorter minute, and a file holding nvidia-smi output (`NVIDIA GeForce RTX 3090, 4`) read instead of the real GPU |
 | `TC_SHUTDOWN_REAL=1` | A development run really shuts down; without it, it only writes a line to `shutdown-fake.log` in the data folder |
 | `TC_PHONE_PORT=<port>`, `TC_PHONE_PAIR_CODE=<code>` | Phone link tests: another local port (default 47817), and a fixed pairing code that works until used |
+| `TC_RESTART_EVENTS=<file.json>` | Read shutdown events from this file instead of the Windows event log, to see the other kinds of restart (`[{"id":41,"at":<epoch ms>,"process":"","type":"","note":""}]` is a crash) |
+| `TC_SHORTCUT_DIR=<folder>` | 放一個捷徑到桌面 writes its shortcut here instead of the real desktop |
 
 Why it works the way it does — what was borrowed from Todoist, TickTick, Sunsama, Amazing Marvin, Goblin Tools, Last Time, Super Productivity, Hindsight and Claude Code's Agent View, and what was left out on purpose — is in [`docs/reference-apps.md`](docs/reference-apps.md).
 
@@ -140,8 +142,9 @@ Perch 是給同時跑好幾個 AI agent 的人用的桌面提醒工具，所有�
 - 自動關機（Windows）：浮窗的電源按鈕可以 30 分到 3 小時後關機、打幾點關（23:30），或等每張 NVIDIA 顯示卡都連續 3 / 5 / 10 / 15 分鐘低於 10% 再關（例如 ComfyUI 算完圖）。關機前會先倒數 60 秒，可以取消；用的是一般關機（`shutdown /s /t 0`，不強制），有程式沒存檔時 Windows 會停下來問你。讀不到 GPU 時一律當作還在忙；電腦睡著錯過的時間會取消，不會醒來就關。Perch 關掉，排好的關機也跟著取消。
 - 手機版（Android，透過 Tailscale）：「設定 → 手機」（預設關閉）配對後，手機能看電腦和 GPU、在等你和正在跑的 agent、今天的待辦，記到今天 / 隨手記 / 暫存，也能排或取消關機（電腦上一樣先倒數 60 秒）。Perch 跳的通知會同步推到開了通知的手機。Perch 只在本機 127.0.0.1 上聽，電腦和手機都裝 Tailscale，由 `tailscale serve` 提供 HTTPS 網址，家裡和外面都能用。配對用一次性的 QR code，每支手機有自己的鑰匙（電腦只存雜湊），可以在設定裡移除。用 Chrome 加到主畫面就像 App；推播經過 Google 的推播伺服器，內容是加密的。
 - 每一天都能寫筆記（日記），邊打邊存；也可以選一個 Obsidian 資料夾，每天寫一份 `Perch/日期.md`。
-- Agent 分頁列出這週所有 session：問了什麼、回了什麼，一鍵複製回去的指令。裝上 Claude Code 的狀態列後，也看得到 5 小時和 7 天的額度，5 小時用到 80% 浮窗才會提醒。
-- 重開機、當機、關機（含快速啟動）或登出後（Windows）：Claude Code、Codex、Grok Build 還開著的 session，Perch 啟動後會通知一次；Agent 分頁列出這次登入前 12 小時內還開著的 session（預設全勾），按「在 Windows Terminal 還原」就開一個視窗、每個 session 一個分頁，在原本的資料夾接回對話。Perch 不會自己打開終端機。OpenCode 和 Antigravity 不會回報 session 關閉，分不出開著還是關了，所以不列。
+- 「等你處理」只算還開著、輪到你的 session：在終端機回它、關掉它或按「看過了」就離開；已經關掉的、重開機前的都不算。Session 用 agent 自己取的名字（Claude Code 就是 `/resume` 清單裡那個名字），沒有的話用第一句話。
+- Agent 分頁列出這週所有 session：問了什麼、回了什麼，一鍵複製回去的指令；別的程式叫 agent 跑一次就關的（例如腳本裡的 `claude -p`）收成一行「背景一次性任務」。裝上 Claude Code 的狀態列後，也看得到 5 小時和 7 天的額度，5 小時用到 80% 浮窗才會提醒。
+- 接回 Agent session（Windows）：一個小視窗列出電腦關掉時還開著的 Claude Code、Codex、Grok Build session，下面是最近 12 小時你自己關掉的（「再早一點」看 3 天內）；現在開著的不會列。勾好按「在 Windows Terminal 接回」，就開一個視窗、每個 session 一個分頁，在原本的資料夾接回對話。重開機後 Perch 讀 Windows 事件記錄，通知一次是怎麼關的：當機、斷電、Windows 更新或安裝程式重開的，當時開著的先勾好；你自己關機、重開、登出（或有程式下了 `shutdown` 指令）的，不預先勾，自己挑。工作列的 Perch 按右鍵、系統匣選單、Agent 分頁都能隨時打開，也可以在視窗裡放一個桌面捷徑（`Perch.exe --restore`）。Perch 不會自己打開終端機。OpenCode 和 Antigravity 不會回報 session 關閉，分不出開著還是關了，所以不列。
 - Windows 為主；Mac 和 Linux 版由 CI 打包，還沒有在真機上試過。
 - 不會催你、不算連續天數；做不到的事可以「不做了」，紀錄還會留著。
 - 每天自動備份一份資料庫，更新前也會先備份；設定 → 匯出 可以存成 JSON 和 Markdown。

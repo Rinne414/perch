@@ -4,7 +4,8 @@ import { liveWindows, type QuotaSnapshot } from '@shared/quota'
 import { addDays, dayKey, dayStart, moveToDay } from '@shared/day'
 import type { BatchTarget, FocusState, MainPayload, PlanTarget } from '@shared/ipc'
 import { buildMainView } from '@shared/mainView'
-import { isRunning, isSettled, needsAttention } from '@shared/now'
+import { isOneShot, isRunning, isSettled, needsAttention } from '@shared/now'
+import type { RestoreSummary } from '@shared/restore'
 import type { Item, ItemPatch, RoutineSchedule } from '@shared/types'
 import { listAgentSessions } from '../db/agents'
 import {
@@ -22,7 +23,6 @@ import {
 } from '../db/items'
 import { transaction } from '../db/transaction'
 import { listProjects } from './projects'
-import { interruptedSessions } from './restore'
 import type { AppSettings } from './settings'
 
 const AGENT_WINDOW_MS = 7 * 86_400_000
@@ -36,8 +36,8 @@ export function getMainPayload(
   settings: AppSettings,
   focus: FocusState | null = null,
   quota: QuotaSnapshot | null = null,
-  /** When the computer started; null where reopening sessions after a restart is not offered. */
-  bootAt: number | null = null,
+  /** The last restart (sessions from before it lost their terminal) and what to offer about it. */
+  agents: { readonly cutoffAt: number; readonly restore: RestoreSummary | null } = { cutoffAt: 0, restore: null },
 ): MainPayload {
   const today = dayKey(now, settings.dayStartHour)
   const view = buildMainView(
@@ -48,24 +48,26 @@ export function getMainPayload(
     settings,
   )
   const sessions = listAgentSessions(db, now - AGENT_WINDOW_MS)
-  const attention = sessions.filter(needsAttention).sort((a, b) => b.attentionAt! - a.attentionAt!)
-  const running = sessions.filter((s) => isRunning(s, now))
-  const recentAgents = sessions
-    .filter((s) => isSettled(s, now))
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, RECENT_AGENTS)
+  const { cutoffAt } = agents
+  const attention = sessions.filter((s) => needsAttention(s, cutoffAt)).sort((a, b) => b.attentionAt! - a.attentionAt!)
+  const running = sessions.filter((s) => isRunning(s, now, cutoffAt))
+  const settled = sessions.filter((s) => isSettled(s, now, cutoffAt)).sort((a, b) => b.updatedAt - a.updatedAt)
+  const recentAgents = settled.filter((s) => !isOneShot(s)).slice(0, RECENT_AGENTS)
+  const backgroundRuns = settled.filter(isOneShot).slice(0, RECENT_AGENTS)
   const live = liveWindows(quota, now)
   return {
     view,
     attention,
     running,
     recentAgents,
+    backgroundRuns,
+    cutoffAt,
     dayStartHour: settings.dayStartHour,
     staleDays: settings.staleDays,
     focus,
     quota: quota && live.length ? { ...quota, windows: live } : null,
     projects: listProjects(db),
-    interrupted: bootAt === null ? [] : interruptedSessions(db, bootAt),
+    restore: agents.restore,
   }
 }
 

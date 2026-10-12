@@ -6,6 +6,7 @@ import { listAgentSessions } from './db/agents'
 import { listOpenItems, rolloverPlans, updateItem } from './db/items'
 import { transaction } from './db/transaction'
 import { notify } from './notify'
+import { sessionCutoff } from './restore'
 import { agentAlert, agentsToNotify, dueAlert, dueItemsToNotify } from './services/reminders'
 import { scheduleAlerts } from './services/scheduleAlerts'
 import { clearExpiredClips } from './services/clips'
@@ -56,7 +57,7 @@ export function startScheduler(ctx: AppContext, beforeTick: () => void = () => u
     ctx.syncObsidian(today)
     lastDay = today
 
-    for (const s of agentsToNotify(listAgentSessions(db, now - AGENT_LOOKBACK_MS), announced, now)) {
+    for (const s of agentsToNotify(listAgentSessions(db, now - AGENT_LOOKBACK_MS), announced, now, sessionCutoff())) {
       announced.set(s.id, s.attentionAt!)
       notify(agentAlert(s), () => ctx.showFloat('agents'))
     }

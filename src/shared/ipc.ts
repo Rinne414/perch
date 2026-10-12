@@ -8,6 +8,7 @@ import type { GpuReading, PowerState } from './power'
 import type { ProjectDetail, ProjectSummary } from './projects'
 import type { QuotaSnapshot, QuotaWindow } from './quota'
 import type { Recap } from './recap'
+import type { RestoreList, RestoreSummary } from './restore'
 import type { AgentSession, Item, RoutineSchedule } from './types'
 
 /** Where a captured line goes when it carries no date. */
@@ -66,8 +67,12 @@ export interface MainPayload {
   readonly attention: readonly AgentSession[]
   /** Sessions still working, most recently active first. */
   readonly running: readonly AgentSession[]
-  /** Everything else from the last week (finished, failed, stopped, already seen), newest first. */
+  /** Everything else from the last week (finished, failed, stopped, closed, already seen), newest first. */
   readonly recentAgents: readonly AgentSession[]
+  /** Runs another program started for one answer (`isOneShot`), kept apart from the rest, newest first. */
+  readonly backgroundRuns: readonly AgentSession[]
+  /** Sessions that last reported before this lost their terminal (the last restart or sign-in). */
+  readonly cutoffAt: number
   readonly dayStartHour: number
   /** Days untouched before an undated item moves to "舊的". */
   readonly staleDays: number
@@ -76,8 +81,8 @@ export interface MainPayload {
   readonly quota: QuotaSnapshot | null
   /** Every folder agents worked in, most recently touched first (hidden ones included and marked). */
   readonly projects: readonly ProjectSummary[]
-  /** Sessions still open in a terminal when the computer restarted (Windows only), newest first. */
-  readonly interrupted: readonly AgentSession[]
+  /** Reopening sessions after a restart: null where it is not offered (outside Windows). */
+  readonly restore: RestoreSummary | null
 }
 
 /** What 在 Windows Terminal 還原 did. */
@@ -209,10 +214,19 @@ export interface Api {
   /** Saves the day's note (the diary); an empty text removes it. */
   setDayNote(day: string, text: string): Promise<void>
   acknowledgeAgents(ids: readonly string[]): Promise<void>
-  /** Reopens `open` in one Windows Terminal window (a tab each); `skip` will not be offered again. */
-  restoreSessions(open: readonly string[], skip: readonly string[]): Promise<RestoreResult>
-  /** 略過: these sessions from before the restart will not be offered again. */
+  /** What the reopen window lists, reaching back `rangeHours` (12 or 72). */
+  listRestore(rangeHours: number): Promise<RestoreList>
+  /**
+   * Reopens `open` (from the list for `rangeHours`) in one Windows Terminal window, a tab each;
+   * the cut-off ones in `skip` will not be offered as cut off again.
+   */
+  restoreSessions(open: readonly string[], skip: readonly string[], rangeHours: number): Promise<RestoreResult>
+  /** 這次都不要: these sessions cut off by the restart will not be offered as cut off again. */
   skipRestore(ids: readonly string[]): Promise<void>
+  /** Opens (or brings forward) the reopen window. */
+  openRestore(): Promise<void>
+  /** Puts a shortcut to the reopen window on the desktop; resolves with its path. */
+  makeRestoreShortcut(): Promise<string>
   /** 暫存: everything written or pasted to keep, newest first, and how long unkept ones stay. */
   getClips(): Promise<ClipsPayload>
   /** Pasted text (temporary), or a memo written by hand with `kept` true. */
@@ -330,6 +344,9 @@ export const CHANNELS = {
   acknowledgeAgents: 'agent:acknowledge',
   restoreSessions: 'agent:restore',
   skipRestore: 'agent:skip-restore',
+  listRestore: 'restore:list',
+  openRestore: 'restore:open',
+  restoreShortcut: 'restore:shortcut',
   getClips: 'clip:list',
   addTextClip: 'clip:add-text',
   addImageClip: 'clip:add-image',

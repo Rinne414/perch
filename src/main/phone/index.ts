@@ -16,6 +16,7 @@ import { addTextClip } from '../services/clips'
 import { captureText, getNowPayload } from '../services/now'
 import { createPhoneApi, type PhoneApi, type PhonePowerActions } from '../services/phoneApi'
 import { createPhoneAuth, type PhoneAuth } from '../services/phoneAuth'
+import { sessionCutoff } from '../restore'
 import { timerAt } from '../services/power'
 import { createPush, type PushMessage, type PushSender } from './push'
 import { startPhoneServer } from './server'
@@ -80,7 +81,7 @@ function phoneApiFor(ctx: AppContext, power: PowerControl, auth: PhoneAuth, push
   return createPhoneApi({
     auth,
     async snapshot(device, now) {
-      const payload = getNowPayload(db, now, ctx.settings(), false)
+      const payload = getNowPayload(db, now, ctx.settings(), false, null, null, sessionCutoff())
       const state = power.power.state()
       return {
         now,

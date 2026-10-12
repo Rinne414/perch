@@ -51,9 +51,11 @@ export function agentsToNotify(
   sessions: readonly AgentSession[],
   announced: ReadonlyMap<string, number>,
   now: number,
+  /** The last restart: whatever waited before it lost its terminal. */
+  cutoff = 0,
 ): AgentSession[] {
   return sessions.filter((s) => {
-    if (!needsAttention(s) || s.attentionAt === null) return false
+    if (!needsAttention(s, cutoff) || s.attentionAt === null) return false
     if (announced.get(s.id) === s.attentionAt) return false
     const waited = now - s.attentionAt
     const grace = GRACE_MS[s.status as keyof typeof GRACE_MS] ?? 60_000

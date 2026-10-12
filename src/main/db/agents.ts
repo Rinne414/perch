@@ -12,6 +12,7 @@ interface SessionRow {
   agent: string
   session_id: string
   cwd: string | null
+  name: string | null
   title: string | null
   status: string
   detail: string | null
@@ -20,6 +21,7 @@ interface SessionRow {
   attention_at: number | null
   acknowledged_at: number | null
   ended_at: number | null
+  reopened_at: number | null
 }
 
 const toSession = (r: SessionRow): AgentSession => ({
@@ -27,6 +29,7 @@ const toSession = (r: SessionRow): AgentSession => ({
   agent: r.agent,
   sessionId: r.session_id,
   cwd: r.cwd,
+  name: r.name,
   // Titles stored before prompts were cleaned can be a lone tag line such as <pasted_content>.
   title: r.title === null ? null : promptTitle(r.title),
   status: r.status as AgentStatus,
@@ -36,6 +39,7 @@ const toSession = (r: SessionRow): AgentSession => ({
   attentionAt: r.attention_at,
   acknowledgedAt: r.acknowledged_at,
   endedAt: r.ended_at,
+  reopenedAt: r.reopened_at,
 })
 
 export function getAgentSession(db: DatabaseSync, id: string): AgentSession | null {
@@ -60,9 +64,10 @@ export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): A
     // still has a result worth looking at, so its end does not wipe the result.
     if (prev && e.status === 'cancelled' && (prev.status === 'done' || prev.status === 'failed')) {
       // Still a report: one without `ended` means the session is open (again).
-      if (endedAt === prev.endedAt) return prev
-      db.prepare('UPDATE agent_sessions SET ended_at = ? WHERE id = ?').run(endedAt, id)
-      return { ...prev, endedAt }
+      const name = e.name ?? prev.name
+      if (endedAt === prev.endedAt && name === prev.name) return prev
+      db.prepare('UPDATE agent_sessions SET ended_at = ?, name = ? WHERE id = ?').run(endedAt, name, id)
+      return { ...prev, endedAt, name }
     }
 
     const statusChanged = prev?.status !== e.status
@@ -73,6 +78,8 @@ export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): A
       agent: e.agent,
       sessionId: e.sessionId,
       cwd: e.cwd ?? prev?.cwd ?? null,
+      // The agent's own name wins; otherwise the session keeps the name its first prompt gave it.
+      name: e.name ?? prev?.name ?? e.title ?? null,
       title: e.title ?? prev?.title ?? null,
       status: e.status,
       detail: e.detail ?? (statusChanged ? null : (prev?.detail ?? null)),
@@ -81,12 +88,13 @@ export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): A
       attentionAt,
       acknowledgedAt: prev?.acknowledgedAt ?? null,
       endedAt,
+      reopenedAt: prev?.reopenedAt ?? null,
     }
     db.prepare(
-      `INSERT INTO agent_sessions (id, agent, session_id, cwd, title, status, detail, started_at,
+      `INSERT INTO agent_sessions (id, agent, session_id, cwd, name, title, status, detail, started_at,
          updated_at, attention_at, acknowledged_at, ended_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT (id) DO UPDATE SET cwd = excluded.cwd, title = excluded.title,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (id) DO UPDATE SET cwd = excluded.cwd, name = excluded.name, title = excluded.title,
          status = excluded.status, detail = excluded.detail, updated_at = excluded.updated_at,
          attention_at = excluded.attention_at, ended_at = excluded.ended_at`,
     ).run(
@@ -94,6 +102,7 @@ export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): A
       next.agent,
       next.sessionId,
       next.cwd,
+      next.name,
       next.title,
       next.status,
       next.detail,
@@ -115,6 +124,14 @@ export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): A
       })
     }
     return next
+  })
+}
+
+/** Names found later (in the agent's own files) for sessions recorded without one. Existing names are kept. */
+export function fillSessionNames(db: DatabaseSync, names: ReadonlyMap<string, string>): void {
+  const stmt = db.prepare('UPDATE agent_sessions SET name = ? WHERE id = ? AND name IS NULL')
+  transaction(db, () => {
+    for (const [id, name] of names) stmt.run(name, id)
   })
 }
 
@@ -199,6 +216,30 @@ export function listOpenSessions(
   return rows.map(toSession)
 }
 
+/** Sessions of `agents` in a known folder that showed life since `from`, open or closed, newest first. */
+export function listRecentSessions(db: DatabaseSync, from: number, agents: readonly string[], limit: number): AgentSession[] {
+  if (agents.length === 0) return []
+  const rows = db
+    .prepare(
+      `SELECT * FROM agent_sessions
+       WHERE cwd IS NOT NULL AND cwd <> ''
+         AND agent IN (${agents.map(() => '?').join(', ')})
+         AND ${LAST_OPEN} >= ?
+       ORDER BY ${LAST_OPEN} DESC
+       LIMIT ?`,
+    )
+    .all(...agents, from, limit) as unknown as SessionRow[]
+  return rows.map(toSession)
+}
+
+/** Claude Code sessions of the last days that have no name yet. */
+export function listUnnamed(db: DatabaseSync, agent: string, since: number): AgentSession[] {
+  const rows = db
+    .prepare('SELECT * FROM agent_sessions WHERE agent = ? AND name IS NULL AND updated_at >= ?')
+    .all(agent, since) as unknown as SessionRow[]
+  return rows.map(toSession)
+}
+
 /** Closed by a restart and not reopened: stops them from being offered again. */
 export function markSessionsEnded(db: DatabaseSync, ids: readonly string[], at: number): void {
   const stmt = db.prepare('UPDATE agent_sessions SET ended_at = ? WHERE id = ? AND ended_at IS NULL')
@@ -207,9 +248,9 @@ export function markSessionsEnded(db: DatabaseSync, ids: readonly string[], at: 
   })
 }
 
-/** Perch opened these in a terminal again: they count as open from `at` until they report closing. */
+/** Perch opened these in a terminal again (closed ones too): they count as open from `at` until they report closing. */
 export function markSessionsReopened(db: DatabaseSync, ids: readonly string[], at: number): void {
-  const stmt = db.prepare('UPDATE agent_sessions SET reopened_at = ? WHERE id = ?')
+  const stmt = db.prepare('UPDATE agent_sessions SET reopened_at = ?, ended_at = NULL WHERE id = ?')
   transaction(db, () => {
     for (const id of ids) stmt.run(at, id)
   })

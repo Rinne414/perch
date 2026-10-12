@@ -37,6 +37,8 @@ interface Mapped {
   readonly status: AgentStatus
   readonly title?: string
   readonly detail?: string
+  /** The agent's own name for the session. */
+  readonly name?: string
   /** Only for the session closing, never for one interrupted turn. */
   readonly ended?: true
 }
@@ -44,11 +46,20 @@ interface Mapped {
 /** The session was closed: what SessionEnd means for every agent that has it. */
 const SESSION_END: Mapped = { status: 'cancelled', ended: true }
 
+/** Claude Code's name for the session, which the CLI reads from its transcript (see `CLAUDE_NAME`). */
+export const CLAUDE_NAME = 'perch_session_name'
+
 function claudeCode(p: Payload): Mapped | null {
   // Grok Build also runs hooks from ~/.claude/settings.json; its own hook reports those turns.
   if ('hookEventName' in p) return null
   // Hooks fired inside a subagent describe the subagent, not the session the person started.
   if (p['agent_id'] !== undefined) return null
+  const mapped = claudeCodeStatus(p)
+  const name = str(p[CLAUDE_NAME])
+  return mapped && name ? { ...mapped, name } : mapped
+}
+
+function claudeCodeStatus(p: Payload): Mapped | null {
   switch (p['hook_event_name']) {
     case 'UserPromptSubmit':
       return { status: 'running', title: promptOf(p['prompt']) }
@@ -206,6 +217,7 @@ export function hookPayloadToEvent(agent: HookAgent, payload: unknown, now: numb
     at: now,
     cwd: mapped.cwd ?? str(p['cwd']),
     ...(mapped.title ? { title: mapped.title } : {}),
+    ...(mapped.name ? { name: mapped.name } : {}),
     ...(mapped.detail ? { detail: mapped.detail } : {}),
     ...(mapped.ended ? { ended: true } : {}),
   }

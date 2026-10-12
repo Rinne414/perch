@@ -35,6 +35,7 @@ const session = (over: Partial<AgentSession>): AgentSession => ({
   agent: 'codex',
   sessionId: '1',
   cwd: 'L:\\code\\api-server',
+  name: null,
   title: '加上分頁',
   status: 'done',
   detail: null,
@@ -43,6 +44,7 @@ const session = (over: Partial<AgentSession>): AgentSession => ({
   attentionAt: at(29, 10),
   acknowledgedAt: null,
   endedAt: null,
+  reopenedAt: null,
   ...over,
 })
 
@@ -79,6 +81,14 @@ describe('agentsToNotify', () => {
     const s = session({ acknowledgedAt: at(29, 10) + 1 })
 
     expect(agentsToNotify([s], new Map(), at(29, 11))).toEqual([])
+  })
+
+  test('skips sessions already closed, and sessions from before the last restart', () => {
+    const closed = session({ endedAt: at(29, 10) + 5_000 })
+    const old = session({})
+
+    expect(agentsToNotify([closed], new Map(), at(29, 10) + 60_000)).toEqual([])
+    expect(agentsToNotify([old], new Map(), at(29, 10) + 60_000, at(29, 10) + 30_000)).toEqual([])
   })
 
   test('the alert names the agent, its state and the project', () => {

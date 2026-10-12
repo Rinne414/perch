@@ -9,6 +9,9 @@ import {
   bootTime,
   interruptedSessions,
   isFolder,
+  isOpenNow,
+  rangeStart,
+  restoreCandidates,
   LOOKBACK_MS,
   parseEpoch,
   restartTime,
@@ -18,6 +21,8 @@ import {
   waitForStart,
   wtEscape,
   wtPlan,
+  type CandidateOptions,
+  type Candidates,
   type RestoreDeps,
 } from './restore'
 
@@ -41,6 +46,7 @@ const session = (sessionId: string, cwd: string | null, agent = 'claude-code'): 
   agent,
   sessionId,
   cwd,
+  name: null,
   title: null,
   status: 'done',
   detail: null,
@@ -49,6 +55,7 @@ const session = (sessionId: string, cwd: string | null, agent = 'claude-code'): 
   attentionAt: null,
   acknowledgedAt: null,
   endedAt: null,
+  reopenedAt: null,
 })
 
 describe('bootTime', () => {
@@ -154,6 +161,87 @@ describe('wtPlan', () => {
   })
 })
 
+const listed = (over: Partial<CandidateOptions> = {}): Candidates =>
+  restoreCandidates(db, { now: AFTER, cutoffAt: BOOT, rangeMs: 12 * HOUR, liveClaude: null, folderExists: (p) => p !== 'L:\\gone', ...over })
+
+const cids = (c: Candidates): { cut: string[]; other: string[] } => ({
+  cut: c.interrupted.map((x) => x.session.id),
+  other: c.others.map((x) => x.session.id),
+})
+
+describe('restoreCandidates', () => {
+  test('cut-off sessions first; closed ones in the range below; open ones and old ones not at all', () => {
+    report({ sessionId: 'cut' })
+    report({ sessionId: 'closed', at: BOOT - 3 * HOUR })
+    report({ sessionId: 'closed', status: 'cancelled', ended: true, at: BOOT - 2 * HOUR })
+    report({ sessionId: 'open-now', at: AFTER - 60_000 })
+    report({ sessionId: 'old', at: BOOT - 30 * HOUR })
+    report({ sessionId: 'old', status: 'cancelled', ended: true, at: BOOT - 29 * HOUR })
+    report({ sessionId: 'opencode', agent: 'opencode' })
+
+    expect(cids(listed())).toEqual({ cut: ['claude-code:cut'], other: ['claude-code:closed'] })
+  })
+
+  test("a session Claude Code lists as running is never offered, even before it reports anything", () => {
+    report({ sessionId: 'cut' })
+    report({ sessionId: 'resumed-by-hand' })
+    report({ sessionId: 'closed-but-resumed', at: BOOT - 3 * HOUR })
+    report({ sessionId: 'closed-but-resumed', status: 'cancelled', ended: true, at: BOOT - 2 * HOUR })
+
+    const c = listed({ liveClaude: new Set(['resumed-by-hand', 'closed-but-resumed']) })
+
+    expect(cids(c)).toEqual({ cut: ['claude-code:cut'], other: [] })
+  })
+
+  test('one-shot runs other programs started are not offered', () => {
+    report({ sessionId: 'oneshot', at: BOOT - 3 * HOUR })
+    report({ sessionId: 'oneshot', status: 'cancelled', ended: true, at: BOOT - 3 * HOUR + 2_000 })
+
+    expect(cids(listed()).other).toEqual([])
+  })
+
+  test('a session whose folder is gone is listed as gone', () => {
+    report({ sessionId: 'gone', cwd: 'L:\\gone' })
+
+    expect(listed().interrupted).toEqual([expect.objectContaining({ gone: true })])
+  })
+
+  test('3 days reach further back than 12 hours', () => {
+    report({ sessionId: 'two-days', at: BOOT - 48 * HOUR })
+    report({ sessionId: 'two-days', status: 'cancelled', ended: true, at: BOOT - 47 * HOUR })
+
+    expect(cids(listed()).other).toEqual([])
+    expect(cids(listed({ rangeMs: 72 * HOUR })).other).toEqual(['claude-code:two-days'])
+  })
+})
+
+describe('rangeStart', () => {
+  test('from the restart when it was recent, so the sessions it cut off are all inside', () => {
+    expect(rangeStart(AFTER, BOOT, 12 * HOUR)).toBe(BOOT - 12 * HOUR)
+  })
+
+  test('from now when the restart was long ago', () => {
+    expect(rangeStart(BOOT + 20 * HOUR, BOOT, 12 * HOUR)).toBe(BOOT + 8 * HOUR)
+  })
+})
+
+describe('isOpenNow', () => {
+  const s = (over: Partial<AgentSession>): AgentSession => ({ ...session('x', 'L:\\a'), ...over })
+
+  test('by the hooks: never closed and seen after the restart', () => {
+    expect(isOpenNow(s({ updatedAt: AFTER }), BOOT, null)).toBe(true)
+    expect(isOpenNow(s({ updatedAt: AFTER, endedAt: AFTER + 1 }), BOOT, null)).toBe(false)
+    expect(isOpenNow(s({ updatedAt: BOOT - 1 }), BOOT, null)).toBe(false)
+    expect(isOpenNow(s({ updatedAt: BOOT - 1, reopenedAt: AFTER }), BOOT, null)).toBe(true)
+  })
+
+  test("or Claude Code lists it as running; its list never makes an open session look closed", () => {
+    expect(isOpenNow(s({ updatedAt: BOOT - HOUR, endedAt: BOOT - HOUR }), BOOT, new Set(['x']))).toBe(true)
+    expect(isOpenNow(s({ updatedAt: AFTER }), BOOT, new Set())).toBe(true)
+    expect(isOpenNow(s({ agent: 'codex', id: 'codex:x', updatedAt: BOOT - HOUR, endedAt: BOOT - HOUR }), BOOT, new Set(['x']))).toBe(false)
+  })
+})
+
 describe('restoreSessions', () => {
   const deps = (opened: string[][], fail = false): RestoreDeps => ({
     folderExists: (p) => p !== 'L:\\gone',
@@ -170,7 +258,7 @@ describe('restoreSessions', () => {
     report({ sessionId: 'unseen' })
     const calls: string[][] = []
 
-    const result = await restoreSessions(db, ['claude-code:pick', 'claude-code:gone', 'claude-code:later'], ['claude-code:skip'], BOOT, AFTER, deps(calls))
+    const result = await restoreSessions(db, ['claude-code:pick', 'claude-code:gone', 'claude-code:later'], ['claude-code:skip'], listed(), AFTER, deps(calls))
 
     expect(result).toEqual({ opened: 1, missing: ['L:\\gone'] })
     expect(calls).toHaveLength(1)
@@ -182,15 +270,36 @@ describe('restoreSessions', () => {
 
   test('a reopened session is offered again after the next restart if it never closed', async () => {
     report({ sessionId: 'pick' })
-    await restoreSessions(db, ['claude-code:pick'], [], BOOT, AFTER, deps([]))
+    await restoreSessions(db, ['claude-code:pick'], [], listed(), AFTER, deps([]))
 
     expect(ids(interruptedSessions(db, AFTER + 10 * HOUR))).toEqual(['claude-code:pick'])
+  })
+
+  test('a closed session from the list can be reopened too; it then counts as open', async () => {
+    report({ sessionId: 'closed', at: BOOT - 3 * HOUR })
+    report({ sessionId: 'closed', status: 'cancelled', ended: true, at: BOOT - 2 * HOUR })
+    const calls: string[][] = []
+
+    const result = await restoreSessions(db, ['claude-code:closed'], [], listed(), AFTER, deps(calls))
+
+    expect(result.opened).toBe(1)
+    expect(calls[0]).toContain('closed')
+    expect(cids(listed({ now: AFTER + 60_000 })).other).toEqual([])
+  })
+
+  test('ids the window did not list are ignored', async () => {
+    report({ sessionId: 'old', at: BOOT - 40 * HOUR })
+    report({ sessionId: 'old', status: 'cancelled', ended: true, at: BOOT - 39 * HOUR })
+    const calls: string[][] = []
+
+    expect((await restoreSessions(db, ['claude-code:old'], [], listed(), AFTER, deps(calls))).opened).toBe(0)
+    expect(calls).toEqual([])
   })
 
   test('when Windows Terminal does not start, nothing is marked', async () => {
     report({ sessionId: 'pick' })
 
-    await expect(restoreSessions(db, ['claude-code:pick'], [], BOOT, AFTER, deps([], true))).rejects.toThrow('wt.exe')
+    await expect(restoreSessions(db, ['claude-code:pick'], [], listed(), AFTER, deps([], true))).rejects.toThrow('wt.exe')
     expect(ids(interruptedSessions(db, BOOT))).toEqual(['claude-code:pick'])
   })
 })

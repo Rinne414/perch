@@ -1,4 +1,4 @@
-/* One agent session, in the main window and the float alike: the prompt, the reply in a quiet box, and the ways back always in reach. */
+/* One agent session, in the main window and the float alike: its name, the reply in a quiet box, and the ways back always in reach. */
 :is(.mw, .float) .agent .resume,
 :is(.mw, .float) .agent .note {
   opacity: 1;
@@ -36,9 +36,16 @@
   color: var(--faint);
 }
 
-:is(.mw, .float) .sub.prompt {
-  color: var(--text);
-  opacity: 0.8;
+/* Why a finished session is gone: 已關, 關機時斷掉. */
+:is(.mw, .float) .agent .tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--field);
+  font-size: 11px;
+  color: var(--faint);
+  vertical-align: 1px;
 }
 
 :is(.mw, .float) .res {

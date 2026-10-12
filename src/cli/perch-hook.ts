@@ -1,8 +1,9 @@
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { hookPayloadToEvent, isHookAgent } from '../integrations/adapters'
+import { CLAUDE_NAME, hookPayloadToEvent, isHookAgent } from '../integrations/adapters'
 import { lastReply, lastUserRequest, readTranscriptTail } from '../integrations/antigravity'
+import { claudeSessionName } from '../integrations/claudeSessions'
 import { parseJsonText, writeInboxEvent } from '../integrations/inbox'
 import { agentPresent, install, INSTALLABLE, isInstallable, isInstalled, uninstall } from '../integrations/install'
 import { saveQuota } from '../integrations/quota'
@@ -73,6 +74,18 @@ function antigravityPayload(payload: unknown, event: string | undefined): unknow
   }
 }
 
+/** Events after which Claude Code may have named (or renamed) the session; tool steps are too frequent to read the transcript on. */
+const NAMING_EVENTS = new Set(['UserPromptSubmit', 'Stop', 'StopFailure', 'Notification', 'SessionEnd'])
+
+/** Claude Code's payloads point at the transcript, where its name for the session is kept. */
+function claudeCodePayload(payload: unknown): unknown {
+  if (typeof payload !== 'object' || payload === null) return payload
+  const p = payload as Record<string, unknown>
+  if (!NAMING_EVENTS.has(String(p['hook_event_name']))) return p
+  const name = claudeSessionName(p['transcript_path'])
+  return name ? { ...p, [CLAUDE_NAME]: name } : p
+}
+
 /** What Antigravity expects back on stdout: Stop needs a decision ("" lets it stop), the rest an empty object. */
 const antigravityAnswer = (event: string | undefined): string => (event === 'Stop' ? '{"decision":""}' : '{}')
 
@@ -82,7 +95,8 @@ async function runHook(agent: string, inbox: string, hookEvent: string | undefin
     keepRawIfDebugging(inbox, agent, raw)
     if (!isHookAgent(agent)) throw new Error(`unknown agent "${agent}"`)
     const parsed = parseJsonText(raw)
-    const payload = agent === 'antigravity' ? antigravityPayload(parsed, hookEvent) : parsed
+    const payload =
+      agent === 'antigravity' ? antigravityPayload(parsed, hookEvent) : agent === 'claude-code' ? claudeCodePayload(parsed) : parsed
     const event = hookPayloadToEvent(agent, payload, Date.now())
     if (event) writeInboxEvent(inbox, event)
   } catch (err) {

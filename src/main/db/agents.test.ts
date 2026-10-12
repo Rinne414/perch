@@ -177,6 +177,7 @@ describe('migration 7', () => {
     const path = join(dir, 'old.db')
     try {
       const old = openDatabase(path)
+      old.exec('ALTER TABLE agent_sessions DROP COLUMN name')
       old.exec('ALTER TABLE agent_sessions DROP COLUMN reopened_at')
       old.exec('ALTER TABLE agent_sessions DROP COLUMN ended_at')
       old.exec(

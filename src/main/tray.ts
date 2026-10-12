@@ -5,6 +5,8 @@ export interface TrayActions {
   showFloat: () => void
   openMain: () => void
   openCapture: () => void
+  /** Null where reopening sessions is not offered. */
+  openRestore: (() => void) | null
   cancelShutdown: () => void
   quit: () => void
 }
@@ -22,6 +24,7 @@ function trayMenu(actions: TrayActions, shutdown: string | null): Menu {
     ...cancel,
     { label: '顯示浮窗', click: actions.showFloat },
     { label: '開啟控制台', click: actions.openMain },
+    ...(actions.openRestore ? [{ label: '接回 Agent session…', click: actions.openRestore }] : []),
     { label: '快速記錄', click: actions.openCapture },
     { type: 'separator' },
     { label: '結束', click: actions.quit },

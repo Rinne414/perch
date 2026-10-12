@@ -3,13 +3,17 @@ import { statSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { REOPENABLE_AGENTS, resumeArgs } from '@shared/agents'
 import type { RestoreResult } from '@shared/ipc'
+import { isOneShot } from '@shared/now'
+import type { RestoreCandidate } from '@shared/restore'
 import type { AgentSession } from '@shared/types'
-import { listOpenSessions, markSessionsEnded, markSessionsReopened } from '../db/agents'
+import { listOpenSessions, listRecentSessions, markSessionsEnded, markSessionsReopened } from '../db/agents'
 
 /** How long before a restart a session may have last shown life and still count as open. */
 export const LOOKBACK_MS = 12 * 3_600_000
 /** More tabs than this in one window is no longer a restore. */
 export const MAX_SESSIONS = 30
+/** Rows read before filtering: scripts calling `claude -p` in a loop can leave many one-shot runs in the range. */
+const RECENT_ROWS = 500
 
 /**
  * A folder on a drive (C:\…). Network shares (\\server\share) are left out: cmd cannot start in
@@ -45,9 +49,12 @@ export function restartTime(bootAt: number, signedInAt: number | null, now: numb
 export function interruptedSessions(db: DatabaseSync, bootAt: number): AgentSession[] {
   // Read twice the limit: rows dropped by the filter must not use up its places.
   return listOpenSessions(db, bootAt - LOOKBACK_MS, bootAt, REOPENABLE_AGENTS, MAX_SESSIONS * 2)
-    .filter((s) => resumeArgs(s) !== null && s.cwd !== null && DRIVE_PATH.test(s.cwd))
+    .filter(resumable)
     .slice(0, MAX_SESSIONS)
 }
+
+/** It has a resume command and a folder a terminal can start in. */
+const resumable = (s: AgentSession): boolean => resumeArgs(s) !== null && s.cwd !== null && DRIVE_PATH.test(s.cwd)
 
 /**
  * Variables a running Claude Code gives the programs it starts. Windows Terminal hands the
@@ -131,6 +138,52 @@ export function wtPlan(sessions: readonly AgentSession[], folderExists: (path: s
   return { args: opened.length > 0 ? args : [], opened, missing }
 }
 
+/**
+ * Whether a session may be open in a terminal now: it never reported closing and showed life
+ * after the last restart, or Claude Code lists it as running (resumed by hand, nothing reported
+ * yet). Either is enough: offering an open session would start a second copy of it.
+ */
+export function isOpenNow(s: AgentSession, cutoffAt: number, liveClaude: ReadonlySet<string> | null): boolean {
+  if (s.agent === 'claude-code' && liveClaude?.has(s.sessionId)) return true
+  return s.endedAt === null && Math.max(s.updatedAt, s.reopenedAt ?? 0) >= cutoffAt
+}
+
+export interface CandidateOptions {
+  readonly now: number
+  readonly cutoffAt: number
+  /** How far back closed sessions are listed. */
+  readonly rangeMs: number
+  /** Claude Code's running sessions by id; null when its list could not be read. */
+  readonly liveClaude: ReadonlySet<string> | null
+  readonly folderExists: (path: string) => boolean
+}
+
+export interface Candidates {
+  readonly interrupted: readonly RestoreCandidate[]
+  readonly others: readonly RestoreCandidate[]
+}
+
+/** The range reaches back from now, or from the restart when that was recent, so its sessions are never cut in two. */
+export const rangeStart = (now: number, cutoffAt: number, rangeMs: number): number =>
+  now - cutoffAt < rangeMs ? cutoffAt - rangeMs : now - rangeMs
+
+/**
+ * What the reopen window lists: the sessions the last restart cut off (and not reopened or
+ * skipped yet), then every other session used in the range that is not open now, closed ones
+ * included. Only agents that resume by id, only folders on a drive.
+ */
+export function restoreCandidates(db: DatabaseSync, o: CandidateOptions): Candidates {
+  const toCandidate = (s: AgentSession): RestoreCandidate => ({ session: s, gone: !o.folderExists(s.cwd!) })
+  const notLive = (s: AgentSession): boolean => !(s.agent === 'claude-code' && o.liveClaude?.has(s.sessionId))
+  const interrupted = interruptedSessions(db, o.cutoffAt).filter(notLive)
+  const taken = new Set(interrupted.map((s) => s.id))
+  const others = listRecentSessions(db, rangeStart(o.now, o.cutoffAt, o.rangeMs), REOPENABLE_AGENTS, RECENT_ROWS)
+    // One-shot runs (`claude -p` from a script) have no conversation worth going back to.
+    .filter((s) => !taken.has(s.id) && resumable(s) && !isOneShot(s) && !isOpenNow(s, o.cutoffAt, o.liveClaude))
+    .slice(0, MAX_SESSIONS)
+  return { interrupted: interrupted.map(toCandidate), others: others.map(toCandidate) }
+}
+
 export interface RestoreDeps {
   readonly folderExists: (path: string) => boolean
   /** Starts Windows Terminal; rejects when it cannot. */
@@ -138,22 +191,23 @@ export interface RestoreDeps {
 }
 
 /**
- * Reopens the chosen sessions of the current batch in one Windows Terminal window. The ones
- * in `skip` and the ones whose folder is gone count as closed, so they are not offered again.
- * Ids outside the current batch are ignored. Nothing is marked when the terminal fails to start.
+ * Reopens the chosen sessions in one Windows Terminal window; ids not in `listed` (what the
+ * window showed) are ignored. Of the sessions the restart cut off, the ones in `skip` and the
+ * ones whose folder is gone count as closed, so they are not offered as cut off again.
+ * Nothing is marked when the terminal fails to start.
  */
 export async function restoreSessions(
   db: DatabaseSync,
   open: readonly string[],
   skip: readonly string[],
-  bootAt: number,
+  listed: Candidates,
   now: number,
   deps: RestoreDeps,
 ): Promise<RestoreResult> {
-  const batch = interruptedSessions(db, bootAt)
   const chosen = new Set(open)
+  const all = [...listed.interrupted, ...listed.others].map((c) => c.session)
   const plan = wtPlan(
-    batch.filter((s) => chosen.has(s.id)),
+    all.filter((s) => chosen.has(s.id)),
     deps.folderExists,
   )
   if (plan.opened.length > 0) await deps.openTerminal(plan.args)
@@ -165,18 +219,18 @@ export async function restoreSessions(
   const skipped = new Set(skip)
   markSessionsEnded(
     db,
-    batch.filter((s) => skipped.has(s.id) || plan.missing.includes(s)).map((s) => s.id),
+    listed.interrupted.map((c) => c.session).filter((s) => skipped.has(s.id) || plan.missing.includes(s)).map((s) => s.id),
     now,
   )
   return { opened: plan.opened.length, missing: plan.missing.map((s) => s.cwd!) }
 }
 
-/** 略過: the shown sessions of the current batch count as closed. */
-export function skipRestore(db: DatabaseSync, ids: readonly string[], bootAt: number, now: number): void {
+/** 這次都不要: the sessions the restart cut off count as closed and stop being offered as cut off. */
+export function skipRestore(db: DatabaseSync, ids: readonly string[], cutoffAt: number, now: number): void {
   const shown = new Set(ids)
   markSessionsEnded(
     db,
-    interruptedSessions(db, bootAt)
+    interruptedSessions(db, cutoffAt)
       .filter((s) => shown.has(s.id))
       .map((s) => s.id),
     now,

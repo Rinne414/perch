@@ -36,16 +36,47 @@ export interface NowView {
 /** A session that stopped reporting this long ago is treated as gone, not running. */
 const RUNNING_TTL_MS = 12 * 3_600_000
 
-export const isRunning = (s: AgentSession, now: number): boolean =>
-  s.status === 'running' && now - s.updatedAt < RUNNING_TTL_MS
+/*
+ * `cutoff` is the last restart (or sign-in): a session that last reported before it lost its
+ * terminal then, so it is neither running nor waiting, whatever it said last.
+ */
 
-export const needsAttention = (s: AgentSession): boolean =>
+export const isRunning = (s: AgentSession, now: number, cutoff = 0): boolean =>
+  s.status === 'running' && now - s.updatedAt < RUNNING_TTL_MS && s.updatedAt >= cutoff
+
+/** Waiting on the person: still open, and not marked as seen since it started waiting. */
+export const needsAttention = (s: AgentSession, cutoff = 0): boolean =>
   ATTENTION_STATUSES.has(s.status) &&
   s.attentionAt !== null &&
+  s.endedAt === null &&
+  s.updatedAt >= cutoff &&
   (s.acknowledgedAt === null || s.acknowledgedAt < s.attentionAt)
 
-/** Finished, failed or stopped, and nobody needs to look at it any more. */
-export const isSettled = (s: AgentSession, now: number): boolean => !needsAttention(s) && !isRunning(s, now)
+/** Finished, failed, stopped or closed, and nobody needs to look at it any more. */
+export const isSettled = (s: AgentSession, now: number, cutoff = 0): boolean =>
+  !needsAttention(s, cutoff) && !isRunning(s, now, cutoff)
+
+/**
+ * How a session that is no longer open went away. One last seen before the restart went with
+ * it, even when Perch marked it closed later (這次都不要, a folder that was gone).
+ */
+export function endLabel(s: AgentSession, cutoff: number): '已關' | '關機時斷掉' | null {
+  const lastActive = Math.max(s.updatedAt, s.reopenedAt ?? 0)
+  if (lastActive < cutoff && (s.endedAt === null || s.endedAt >= cutoff)) return '關機時斷掉'
+  return s.endedAt !== null ? '已關' : null
+}
+
+/** Closed this soon after its last answer... */
+const ONE_SHOT_CLOSE_MS = 60_000
+/** ...and this soon after it started. */
+const ONE_SHOT_SPAN_MS = 10 * 60_000
+
+/**
+ * A run another program started for one answer (`claude -p`, scripts calling grok): it closed
+ * within a minute of answering, less than ten minutes after it began.
+ */
+export const isOneShot = (s: AgentSession): boolean =>
+  s.endedAt !== null && s.endedAt - s.updatedAt < ONE_SHOT_CLOSE_MS && s.endedAt - s.startedAt < ONE_SHOT_SPAN_MS
 
 export function byUrgency(a: TodayEntry, b: TodayEntry): number {
   if (a.overdueDays !== b.overdueDays) return b.overdueDays - a.overdueDays
@@ -77,6 +108,8 @@ export function buildNow(
   sessions: readonly AgentSession[],
   now: number,
   settings: NowSettings,
+  /** The last restart; sessions from before it are gone (see `isRunning`). */
+  cutoff = 0,
 ): NowView {
   const day = dayKey(now, settings.dayStartHour)
 
@@ -99,8 +132,8 @@ export function buildNow(
 
   return {
     day,
-    attention: sessions.filter(needsAttention).sort((a, b) => b.attentionAt! - a.attentionAt!),
-    running: sessions.filter((s) => isRunning(s, now)),
+    attention: sessions.filter((s) => needsAttention(s, cutoff)).sort((a, b) => b.attentionAt! - a.attentionAt!),
+    running: sessions.filter((s) => isRunning(s, now, cutoff)),
     today: todayEntries(items, day, settings),
     routines,
     schedule: occurrencesOn(items, day).filter((o) => o.endAt > now),

@@ -4,7 +4,7 @@ import { quotaAlert, type QuotaSnapshot } from '@shared/quota'
 import { addDays, dayKey, dayStart, moveToDay } from '@shared/day'
 import type { CaptureTarget, FocusState, NowPayload } from '@shared/ipc'
 import { buildMainView } from '@shared/mainView'
-import { buildNow, isSettled } from '@shared/now'
+import { buildNow, isOneShot, isSettled } from '@shared/now'
 import { buildRecap } from '@shared/recap'
 import { DEFAULT_REMIND_MINUTES } from '@shared/schedule'
 import { parseWeekly } from '@shared/weekly'
@@ -31,10 +31,12 @@ export function getNowPayload(
   pinned: boolean,
   focus: FocusState | null = null,
   quota: QuotaSnapshot | null = null,
+  /** The last restart; sessions from before it lost their terminal. */
+  cutoffAt = 0,
 ): NowPayload {
   const open = listOpenItems(db)
   const sessions = listAgentSessions(db, now - AGENT_WINDOW_MS)
-  const view = buildNow(open, sessions, now, settings)
+  const view = buildNow(open, sessions, now, settings, cutoffAt)
   const today = dayStart(view.day, settings.dayStartHour)
   const lists = buildMainView(open, [], listDoneItems(db, today, now + 1), now, settings)
   const dismissed = getSetting<string | null>(db, RECAP_DISMISSED, null) === view.day
@@ -53,7 +55,7 @@ export function getNowPayload(
     upcomingCount: lists.upcoming.length,
     ideas: lists.inbox.slice(0, FLOAT_IDEAS),
     doneToday: lists.doneToday.filter((i) => i.droppedAt === null),
-    recentAgents: sessions.filter((s) => isSettled(s, now)).slice(0, FLOAT_RECENT_AGENTS),
+    recentAgents: sessions.filter((s) => isSettled(s, now, cutoffAt) && !isOneShot(s)).slice(0, FLOAT_RECENT_AGENTS),
   }
 }
 

@@ -1,0 +1,280 @@
+/*
+ * 接回 Agent session: a list to tick and one button. After a crash or an installer's restart the
+ * window carries the amber of things that wait on the person; otherwise it is the plain glass.
+ */
+
+.rw {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.rw.crash {
+  background: radial-gradient(120% 70% at 0% 0%, rgba(255, 190, 90, 0.16), transparent 55%);
+  box-shadow: inset 0 0 0 1px rgba(255, 207, 107, 0.26);
+}
+
+.rw-bar {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding-left: 16px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.rw-x {
+  -webkit-app-region: no-drag;
+  width: 46px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  transition: background-color var(--fast), color var(--fast);
+}
+
+.rw-x:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+
+.rw-head {
+  display: grid;
+  gap: 6px;
+  padding: 0 22px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rw-head h1 {
+  font: 600 19px/1.3 var(--font-display);
+}
+
+.rw-why {
+  font-size: 12.5px;
+  color: var(--dim);
+  text-wrap: pretty;
+}
+
+.rw-why.warn {
+  color: var(--wait);
+}
+
+.rw-list {
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 14px 12px 12px;
+}
+
+.rw-group h2 {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.rw-group h2 small {
+  font-size: 11.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--faint);
+}
+
+.rw-group ul {
+  display: grid;
+  gap: 1px;
+  padding: 0;
+  list-style: none;
+}
+
+.rw-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 8px;
+  border-radius: var(--radius-row);
+  cursor: pointer;
+  transition: background-color var(--fast);
+}
+
+.rw-row:hover {
+  background: var(--hover);
+}
+
+.rw-row:has(.cbx:focus-visible) {
+  background: var(--hover);
+  box-shadow: inset 0 0 0 1px rgba(157, 184, 255, 0.6);
+}
+
+.rw-row.gone {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.rw-row .main {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rw-row .nm {
+  font-weight: 500;
+}
+
+.rw-row .meta {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.rw-row .bad {
+  color: var(--late);
+}
+
+.rw-row .last {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rw-row .tm {
+  font-size: 12px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cbx {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--dim);
+  border-radius: 4px;
+  background: none;
+  cursor: inherit;
+  outline: none;
+  transition: background-color var(--fast), border-color var(--fast);
+}
+
+.cbx:checked {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.cbx:checked::after {
+  content: '';
+  width: 8px;
+  height: 4px;
+  border: solid #161a24;
+  border-width: 0 0 2px 2px;
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+.rw-empty,
+.rw-note {
+  margin: 0 8px;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.rw-empty {
+  padding: 18px 0;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.rw-more,
+.link2 {
+  -webkit-app-region: no-drag;
+  justify-self: start;
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  color: var(--info);
+  font-size: 12.5px;
+}
+
+.rw-more {
+  margin-left: 8px;
+}
+
+.rw-more:hover,
+.link2:hover {
+  text-decoration: underline;
+}
+
+.rw-foot {
+  display: grid;
+  gap: 8px;
+  padding: 12px 22px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.rw-foot .acts {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rw-foot .btn.primary,
+.rw-foot .btn.ghost {
+  padding: 8px 16px;
+  font-size: 13.5px;
+}
+
+.rw-foot .tiny {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.rw-foot .tiny .push {
+  flex: 1;
+}
+
+.rw-foot .tiny .ok {
+  color: var(--done);
+}
+
+.rw-foot .tiny .bad {
+  color: var(--late);
+}
+
+.rw-foot .link2 {
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rw *,
+  .rw-row,
+  .cbx {
+    transition: none;
+  }
+}
+
+.rw-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rw-list::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}

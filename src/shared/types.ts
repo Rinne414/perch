@@ -116,6 +116,12 @@ export interface AgentSession {
   readonly agent: string
   readonly sessionId: string
   readonly cwd: string | null
+  /**
+   * What the session is called: the agent's own name for it (Claude Code's session title, the
+   * one /resume lists), else its first prompt. Null for sessions recorded before names existed.
+   */
+  readonly name: string | null
+  /** The latest prompt. */
   readonly title: string | null
   readonly status: AgentStatus
   readonly detail: string | null
@@ -126,4 +132,6 @@ export interface AgentSession {
   readonly acknowledgedAt: number | null
   /** When the session itself was closed, or found closed after a restart; null while it may still be open. */
   readonly endedAt: number | null
+  /** When Perch last reopened it in a terminal after a restart. */
+  readonly reopenedAt: number | null
 }

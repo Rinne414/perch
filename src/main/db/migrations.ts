@@ -106,6 +106,10 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE agent_sessions ADD COLUMN reopened_at INTEGER;
   UPDATE agent_sessions SET ended_at = updated_at;
   `,
+  // What a session is called: the agent's own name for it, else its first prompt.
+  `
+  ALTER TABLE agent_sessions ADD COLUMN name TEXT;
+  `,
 ]
 
 const userVersion = (db: DatabaseSync): number =>

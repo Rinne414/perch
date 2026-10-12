@@ -130,6 +130,14 @@ export const PowerIcon = ({ size = 14 }: IconProps): React.JSX.Element => (
   </NavIcon>
 )
 
+/** A turning arrow: bring sessions back after a restart. */
+export const RestoreIcon = ({ size = 14 }: IconProps): React.JSX.Element => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 8a5 5 0 1 0 1.5-3.6" />
+    <path d="M3 2.5v2.8h2.8" />
+  </svg>
+)
+
 export const TrashIcon = ({ size = 12 }: IconProps): React.JSX.Element => (
   <NavIcon size={size}>
     <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" />

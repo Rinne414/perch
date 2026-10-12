@@ -15,6 +15,10 @@ export const AGENT_NAMES: Readonly<Record<string, string>> = {
 
 export const agentName = (agent: string): string => AGENT_NAMES[agent] ?? agent
 
+/** What a person calls the session: its name, else its latest prompt, else just the agent. */
+export const sessionLabel = (s: { agent: string; name: string | null; title: string | null }): string =>
+  s.name ?? s.title ?? agentName(s.agent)
+
 /** States in which a session is waiting on the person, not the other way round. */
 export const ATTENTION_STATUSES: ReadonlySet<AgentStatus> = new Set(['needs_input', 'done', 'failed'])
 

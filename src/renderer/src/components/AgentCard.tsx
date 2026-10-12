@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { agentName, resumeCommand, STATUS_LABEL } from '@shared/agents'
+import { agentName, resumeCommand, sessionLabel, STATUS_LABEL } from '@shared/agents'
 import { ago } from '@shared/format'
+import { endLabel } from '@shared/now'
 import { projectName } from '@shared/projects'
 import type { PlanTarget } from '@shared/ipc'
 import type { AgentSession } from '@shared/types'
@@ -82,7 +83,13 @@ interface CardProps {
   readonly group: AgentGroup
   readonly at: number
   readonly layout?: ActsLayout
+  /** The last restart; finished sessions from before it that never closed say so. */
+  readonly cutoffAt?: number
 }
+
+/** Why a finished session is no longer open: closed, or cut off by a restart. */
+const endTag = (s: AgentSession, group: AgentGroup, cutoffAt: number | undefined): string | null =>
+  group === 'recent' ? endLabel(s, cutoffAt ?? 0) : null
 
 const NOTE_PLANS: readonly { plan: PlanTarget; label: string }[] = [
   { plan: 'today', label: '今天' },
@@ -151,11 +158,12 @@ function NoteForm({ session, onClose }: { session: AgentSession; onClose: () => 
 }
 
 /** One agent session: what it was asked, what came back, and the ways back into it. */
-export function AgentCard({ session, group, at, layout = 'side' }: CardProps): React.JSX.Element {
+export function AgentCard({ session, group, at, layout = 'side', cutoffAt }: CardProps): React.JSX.Element {
   const run = useAction()
   const [noting, setNoting] = useState(false)
   const where = projectName(session.cwd)
   const seen = group === 'recent' && wasSeen(session)
+  const tag = endTag(session, group, cutoffAt)
   const acts = (
     <span className={`agent-acts${layout === 'below' ? ' below' : ''}`}>
       {group === 'attention' && (
@@ -174,12 +182,13 @@ export function AgentCard({ session, group, at, layout = 'side' }: CardProps): R
     <li className={`row agent agent-${session.status}${seen ? ' seen' : ''}`}>
       <span className="dot" aria-hidden="true" />
       <div className="main">
-        <div className="title">{agentName(session.agent)}</div>
+        <div className="title">{sessionLabel(session)}</div>
         <div className="sub">
           <em>{STATUS_LABEL[session.status]}</em>
           {where && ` · ${where}`}
+          {` · ${agentName(session.agent)}`}
+          {tag && <span className="tag">{tag}</span>}
         </div>
-        {session.title && <div className="sub prompt">「{session.title}」</div>}
         {session.detail && <div className="res">{session.detail}</div>}
         {layout === 'below' && acts}
         {noting && <NoteForm session={session} onClose={() => setNoting(false)} />}
@@ -202,9 +211,10 @@ interface SectionProps {
   readonly layout?: ActsLayout
   /** A button beside the heading, such as "全部看過了". */
   readonly extra?: React.ReactNode
+  readonly cutoffAt?: number
 }
 
-export function AgentSection({ id, title, note, sessions, group, at, layout, extra }: SectionProps): React.JSX.Element | null {
+export function AgentSection({ id, title, note, sessions, group, at, layout, extra, cutoffAt }: SectionProps): React.JSX.Element | null {
   if (sessions.length === 0) return null
   return (
     <section className="sec" aria-labelledby={id}>
@@ -215,7 +225,7 @@ export function AgentSection({ id, title, note, sessions, group, at, layout, ext
       </h2>
       <ul>
         {sessions.map((s) => (
-          <AgentCard key={s.id} session={s} group={group} at={at} layout={layout} />
+          <AgentCard key={s.id} session={s} group={group} at={at} layout={layout} cutoffAt={cutoffAt} />
         ))}
       </ul>
     </section>

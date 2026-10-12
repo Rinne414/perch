@@ -18,6 +18,14 @@ describe('claude-code', () => {
     })
   })
 
+  test("carries Claude Code's name for the session, which the CLI read from its transcript", () => {
+    const stop = hookPayloadToEvent('claude-code', { ...base, hook_event_name: 'Stop', perch_session_name: '登入頁修好了' }, NOW)
+    const tool = hookPayloadToEvent('claude-code', { ...base, hook_event_name: 'PostToolUse' }, NOW)
+
+    expect(stop).toMatchObject({ status: 'done', name: '登入頁修好了' })
+    expect(tool).not.toHaveProperty('name')
+  })
+
   test('Stop is done; a permission prompt waits on the person; idle prompts are ignored', () => {
     const stop = hookPayloadToEvent('claude-code', { ...base, hook_event_name: 'Stop', last_assistant_message: '改好了。' }, NOW)
     const perm = hookPayloadToEvent(

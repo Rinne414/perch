@@ -10,6 +10,7 @@ const session = (over: Partial<AgentSession> = {}): AgentSession => ({
   agent: 'codex',
   sessionId: 's',
   cwd: 'D:\\code\\x',
+  name: null,
   title: null,
   status: 'done',
   detail: null,
@@ -18,6 +19,7 @@ const session = (over: Partial<AgentSession> = {}): AgentSession => ({
   attentionAt: null,
   acknowledgedAt: null,
   endedAt: null,
+  reopenedAt: null,
   ...over,
 })
 

@@ -41,6 +41,7 @@ function session(over: Partial<AgentSession>): AgentSession {
     agent: 'claude-code',
     sessionId: 's1',
     cwd: null,
+    name: null,
     title: null,
     status: 'running',
     detail: null,
@@ -49,6 +50,7 @@ function session(over: Partial<AgentSession>): AgentSession {
     attentionAt: null,
     acknowledgedAt: null,
     endedAt: null,
+    reopenedAt: null,
     ...over,
   }
 }

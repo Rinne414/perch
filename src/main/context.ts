@@ -15,6 +15,8 @@ export interface AppContext {
   broadcast(): void
   showFloat(tab?: FloatTab): void
   openMain(tab?: MainTab): void
+  /** Opens (or brings forward) the window that reopens agent sessions. */
+  openRestore(): void
   isFloatPinned(): boolean
   setFloatPinned(on: boolean): void
   readonly log: Log

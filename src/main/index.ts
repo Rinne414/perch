@@ -16,7 +16,7 @@ import { registerClipScheme, serveClips } from './clipProtocol'
 import { backupsDir, clipsDir, dataDir, hookSetup, logsDir, separateDevProfile } from './paths'
 import { startPower, type PowerControl } from './power'
 import { startPhone, type PhoneControl } from './phone'
-import { startRestore } from './restore'
+import { RESTORE_ARG, RESTORE_SUPPORTED, startRestore } from './restore'
 import { startScheduler } from './scheduler'
 import { startDailyBackups, writeBackup } from './services/backup'
 import { createObsidianSync } from './services/obsidian'
@@ -24,12 +24,14 @@ import { createTray, setTrayShutdown, type TrayActions } from './tray'
 import { createCaptureWindow, toggleCapture } from './windows/capture'
 import { createFloatWindow, readFloatState, saveFloatPinned } from './windows/float'
 import { createMainWindow, focusMainWindow } from './windows/main'
+import { createRestoreWindow, focusRestoreWindow } from './windows/restore'
 import { createUpdater } from './updater'
 
 let db: DatabaseSync | null = null
 let floatWin: BrowserWindow | null = null
 let mainWin: BrowserWindow | null = null
 let captureWin: BrowserWindow | null = null
+let restoreWin: BrowserWindow | null = null
 let tray: Tray | null = null
 let stopScheduler: (() => void) | null = null
 let closeInbox: (() => void) | null = null
@@ -60,6 +62,12 @@ function openMain(tab?: MainTab): void {
   if (!db) return
   if (alive(mainWin)) focusMainWindow(mainWin, tab)
   else mainWin = createMainWindow(db, tab)
+}
+
+function openRestore(): void {
+  if (!RESTORE_SUPPORTED) return
+  if (alive(restoreWin)) focusRestoreWindow(restoreWin)
+  else restoreWin = createRestoreWindow()
 }
 
 function openCapture(): void {
@@ -104,6 +112,11 @@ function showForScreenshot(): boolean {
     if (captureWin) captureIfRequested(captureWin)
     return true
   }
+  if (view === 'restore') {
+    openRestore()
+    if (restoreWin) captureIfRequested(restoreWin)
+    return true
+  }
   if (view === 'main') {
     const tab = process.env['TC_SCREENSHOT_TAB'] as MainTab | undefined
     openMain(tab && MAIN_TABS.includes(tab) ? tab : undefined)
@@ -129,6 +142,7 @@ function start(): void {
     broadcast: broadcastChange,
     showFloat,
     openMain,
+    openRestore,
     isFloatPinned: () => readFloatState(database).pinned,
     setFloatPinned: (on) => {
       saveFloatPinned(database, on)
@@ -145,6 +159,7 @@ function start(): void {
     showFloat: () => showFloat(),
     openMain: () => openMain(),
     openCapture,
+    openRestore: RESTORE_SUPPORTED ? openRestore : null,
     cancelShutdown: () => powerControl?.power.cancel(),
     quit: () => app.quit(),
   }
@@ -160,7 +175,9 @@ function start(): void {
   if (showForScreenshot()) return
   showFloat()
   if (floatWin) captureIfRequested(floatWin)
-  welcomeOnce(database)
+  // Started from the jump list or the desktop shortcut.
+  if (process.argv.includes(RESTORE_ARG)) openRestore()
+  else welcomeOnce(database)
 }
 
 /** The tray menu gets a cancel item while a shutdown is planned; rebuilt only when its words change. */
@@ -191,8 +208,8 @@ if (!app.requestSingleInstanceLock()) {
   process.on('uncaughtException', (err) => log.error('Uncaught exception', err))
   process.on('unhandledRejection', (reason) => log.error('Unhandled rejection', reason))
   app.on('render-process-gone', (_e, _contents, details) => log.error(`A window stopped: ${details.reason} (${details.exitCode})`))
-  // Starting the app again (desktop shortcut, Start menu) opens the main window.
-  app.on('second-instance', () => openMain())
+  // Starting the app again opens the main window, or the reopen window from its own shortcut.
+  app.on('second-instance', (_e, argv) => (argv.includes(RESTORE_ARG) ? openRestore() : openMain()))
   // Closing every window keeps the app alive in the tray.
   app.on('window-all-closed', () => undefined)
   app.on('will-quit', () => {

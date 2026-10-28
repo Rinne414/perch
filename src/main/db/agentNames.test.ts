@@ -84,6 +84,7 @@ describe('migration 8', () => {
         `INSERT INTO agent_sessions (id, agent, session_id, title, status, started_at, updated_at)
          VALUES ('claude-code:x', 'claude-code', 'x', 'ok', 'done', 1, 42)`,
       )
+      old.exec('ALTER TABLE items DROP COLUMN monthly')
       old.exec('PRAGMA user_version = 7')
       old.close()
 

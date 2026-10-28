@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { AgentSession, Item } from '@shared/types'
-import { agentAlert, agentsToNotify, dueAlert, dueItemsToNotify } from './reminders'
+import { agentAlert, agentsToNotify, dueAlert, dueItemsToNotify, monthlyAlert, monthlyToNotify } from './reminders'
 import { DEFAULT_SETTINGS } from './settings'
 
 const at = (d: number, h: number, m = 0): number => new Date(2026, 8, d, h, m).getTime()
@@ -26,6 +26,7 @@ const item = (over: Partial<Item>): Item => ({
   notifiedAt: null,
   source: 'user',
   schedule: null,
+  monthly: null,
   project: null,
   ...over,
 })
@@ -64,7 +65,7 @@ describe('dueAlert', () => {
   test('folds many due items into one notification', () => {
     const items = ['a', 'b', 'c', 'd'].map((title) => item({ title }))
 
-    expect(dueAlert(items)).toEqual({ title: '有 4 件事到期', body: 'a、b、c 等 4 件' })
+    expect(dueAlert(items)).toEqual({ title: '有 4 件事到了截止時間', body: 'a、b、c 等 4 件' })
   })
 })
 
@@ -93,5 +94,34 @@ describe('agentsToNotify', () => {
 
   test('the alert names the agent, its state and the project', () => {
     expect(agentAlert(session({}))).toEqual({ title: 'Codex 完成 · api-server', body: '加上分頁' })
+  })
+})
+
+describe('monthlyToNotify', () => {
+  // Rent on the 5th; it existed since August and September was paid.
+  const rent = item({ kind: 'routine', title: '繳房租', monthly: { days: [5], leadDays: 0 }, createdAt: at(1, 9) - 30 * 86_400_000, lastDoneAt: at(5, 12) })
+  const oct = (d: number, h: number): number => new Date(2026, 9, d, h).getTime()
+
+  test('announces a date on the morning it opens, once', () => {
+    expect(monthlyToNotify([rent], oct(5, 8), DEFAULT_SETTINGS)).toEqual([])
+    expect(monthlyToNotify([rent], oct(5, 9), DEFAULT_SETTINGS)).toEqual([rent])
+    expect(monthlyToNotify([{ ...rent, notifiedAt: oct(5, 9) }], oct(6, 9), DEFAULT_SETTINGS)).toEqual([])
+  })
+
+  test('a lead moves the morning earlier; the next month announces again', () => {
+    const early = { ...rent, monthly: { days: [5], leadDays: 3 } }
+    expect(monthlyToNotify([early], oct(2, 9), DEFAULT_SETTINGS)).toEqual([early])
+    const announced = { ...rent, notifiedAt: oct(5, 9) }
+    expect(monthlyToNotify([announced], new Date(2026, 10, 5, 9).getTime(), DEFAULT_SETTINGS)).toEqual([announced])
+  })
+
+  test('nothing once done, and nothing for a date already open when it was made', () => {
+    expect(monthlyToNotify([{ ...rent, lastDoneAt: oct(5, 10) }], oct(5, 11), DEFAULT_SETTINGS)).toEqual([])
+    expect(monthlyToNotify([{ ...rent, lastDoneAt: null, createdAt: oct(5, 14) }], oct(5, 15), DEFAULT_SETTINGS)).toEqual([])
+  })
+
+  test('the alert says the date', () => {
+    expect(monthlyAlert([rent], oct(7, 9), DEFAULT_SETTINGS)).toEqual({ title: '該做了：繳房租', body: '10/5 · 晚了 2 天' })
+    expect(monthlyAlert([rent, { ...rent, title: '繳卡費' }], oct(7, 9), DEFAULT_SETTINGS)?.title).toBe('有 2 件每月例行該做了')
   })
 })

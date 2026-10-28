@@ -9,7 +9,7 @@ import type { ProjectDetail, ProjectSummary } from './projects'
 import type { QuotaSnapshot, QuotaWindow } from './quota'
 import type { Recap } from './recap'
 import type { RestoreList, RestoreSummary } from './restore'
-import type { AgentSession, Item, RoutineSchedule } from './types'
+import type { AgentSession, Item, MonthlyRule, RoutineSchedule } from './types'
 
 /** Where a captured line goes when it carries no date. */
 export type CaptureTarget = 'today' | 'inbox'
@@ -176,9 +176,18 @@ export interface Api {
   remove(id: string): Promise<void>
   undoRemove(id: string): Promise<boolean>
   addStep(parentId: string, title: string): Promise<void>
-  /** A null interval makes a tracker that only remembers when it last happened. */
-  createRoutine(title: string, intervalDays: number | null, schedule?: RoutineSchedule | null): Promise<void>
-  updateRoutine(id: string, title: string, intervalDays: number | null, schedule?: RoutineSchedule | null): Promise<void>
+  /**
+   * A null interval makes a tracker that only remembers when it last happened; a schedule makes
+   * fixed weekly times, a monthly rule fixed days of every month.
+   */
+  createRoutine(title: string, intervalDays: number | null, schedule?: RoutineSchedule | null, monthly?: MonthlyRule | null): Promise<void>
+  updateRoutine(
+    id: string,
+    title: string,
+    intervalDays: number | null,
+    schedule?: RoutineSchedule | null,
+    monthly?: MonthlyRule | null,
+  ): Promise<void>
   getRoutineHistory(id: string): Promise<RoutineHistory>
   /** Records a completion from typed text ("昨天", "前天晚上"). */
   recordRoutine(id: string, when: string): Promise<void>
@@ -206,14 +215,17 @@ export interface Api {
   /** Marks for every day from `from` to `to` (YYYY-MM-DD, inclusive, at most 60 days). */
   getMonth(from: string, to: string): Promise<DayMarks[]>
   getDay(day: string): Promise<DayView>
-  /** A line typed on a calendar day: planned for that day unless it names its own date. */
-  captureOn(text: string, day: string): Promise<void>
+  /** A line typed on a calendar day: planned for that day unless it names its own date; with `due`, due that day. */
+  captureOn(text: string, day: string, due?: boolean): Promise<void>
   /** Fills in something that happened on a past day ("下午3點 開會"). */
   addManualEntry(day: string, text: string): Promise<void>
   removeManualEntry(entryId: number): Promise<void>
   /** Saves the day's note (the diary); an empty text removes it. */
   setDayNote(day: string, text: string): Promise<void>
   acknowledgeAgents(ids: readonly string[]): Promise<void>
+  /** Takes a session off Perch's list (its replies stay on the calendar); `undoRemoveAgent` puts it back for a minute. */
+  removeAgent(id: string): Promise<void>
+  undoRemoveAgent(id: string): Promise<boolean>
   /** What the reopen window lists, reaching back `rangeHours` (12 or 72). */
   listRestore(rangeHours: number): Promise<RestoreList>
   /**
@@ -342,6 +354,8 @@ export const CHANNELS = {
   removeManualEntry: 'calendar:remove-entry',
   setDayNote: 'calendar:note',
   acknowledgeAgents: 'agent:acknowledge',
+  removeAgent: 'agent:remove',
+  undoRemoveAgent: 'agent:undo-remove',
   restoreSessions: 'agent:restore',
   skipRestore: 'agent:skip-restore',
   listRestore: 'restore:list',

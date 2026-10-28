@@ -5,6 +5,7 @@ import { basename } from 'node:path'
 import { parsePast } from '@shared/capture'
 import { dayKey } from '@shared/day'
 import type { QuotaSnapshot } from '@shared/quota'
+import { parseMonthly } from '@shared/monthly'
 import { parseSchedule } from '@shared/schedule'
 import { isCaptureAccelerator } from '@shared/shortcut'
 import {
@@ -58,6 +59,7 @@ import { captureText, dismissRecap, getNowPayload, postponeItem } from './servic
 import { recordRoutine, removeRoutineRecord, routineHistory } from './services/routines'
 import { updateSettings } from './services/settings'
 import { restoreSummary, sessionCutoff } from './restore'
+import { createSessionTrash } from './services/sessionTrash'
 
 const MAX_ID = 128
 const MAX_TEXT = 2000
@@ -99,6 +101,9 @@ const interval = (v: unknown): number | null => (v === null ? null : Number(v))
 /** Fixed weekly times, or null / missing for none. */
 const schedule = (v: unknown) => (v === null || v === undefined ? null : parseSchedule(v))
 
+/** Days of every month, or null / missing for none. */
+const monthly = (v: unknown) => (v === null || v === undefined ? null : parseMonthly(v))
+
 function recordId(v: unknown): number {
   if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 1) throw new Error('Invalid record id')
   return v
@@ -134,6 +139,7 @@ const mutating =
 function registerItemHandlers(ctx: AppContext, focus: Focus): void {
   const { db } = ctx
   const trash = createTrash()
+  const sessionTrash = createSessionTrash()
   const batches = createBatchUndo()
   const handle = <A extends unknown[]>(channel: string, fn: (...args: A) => unknown): void => {
     ipcMain.handle(channel, mutating(ctx, fn))
@@ -163,11 +169,11 @@ function registerItemHandlers(ctx: AppContext, focus: Focus): void {
   handle(CHANNELS.undoBatch, (token: unknown) => batches.restore(db, text(token), Date.now()))
   handle(CHANNELS.undoRemove, (i: unknown) => trash.restore(db, id(i)))
   handle(CHANNELS.addStep, (p: unknown, t: unknown) => void addStep(db, id(p), text(t), Date.now()))
-  handle(CHANNELS.createRoutine, (t: unknown, days: unknown, s: unknown) => {
-    createRoutine(db, text(t), interval(days), Date.now(), schedule(s))
+  handle(CHANNELS.createRoutine, (t: unknown, days: unknown, s: unknown, m: unknown) => {
+    createRoutine(db, text(t), interval(days), Date.now(), schedule(s), monthly(m))
   })
-  handle(CHANNELS.updateRoutine, (i: unknown, t: unknown, days: unknown, s: unknown) => {
-    updateRoutine(db, id(i), text(t), interval(days), Date.now(), schedule(s))
+  handle(CHANNELS.updateRoutine, (i: unknown, t: unknown, days: unknown, s: unknown, m: unknown) => {
+    updateRoutine(db, id(i), text(t), interval(days), Date.now(), schedule(s), monthly(m))
   })
   ipcMain.handle(CHANNELS.getRoutineHistory, (_e, i: unknown) => routineHistory(db, id(i)))
   handle(CHANNELS.recordRoutine, (i: unknown, when: unknown) => {
@@ -189,7 +195,9 @@ function registerItemHandlers(ctx: AppContext, focus: Focus): void {
     return monthMarks(db, a, b, ctx.settings())
   })
   ipcMain.handle(CHANNELS.getDay, (_e, d: unknown) => dayView(db, day(d), Date.now(), ctx.settings()))
-  handle(CHANNELS.captureOn, (t: unknown, d: unknown) => void captureOn(db, text(t), day(d), Date.now(), ctx.settings()))
+  handle(CHANNELS.captureOn, (t: unknown, d: unknown, due: unknown) => {
+    captureOn(db, text(t), day(d), Date.now(), ctx.settings(), due === true)
+  })
   handle(CHANNELS.addManualEntry, (d: unknown, t: unknown) => {
     addManualEntry(db, day(d), text(t), Date.now(), ctx.settings())
     ctx.syncObsidian(day(d))
@@ -209,6 +217,8 @@ function registerItemHandlers(ctx: AppContext, focus: Focus): void {
     const now = Date.now()
     transaction(db, () => ids(list).forEach((i) => acknowledgeAgent(db, i, now)))
   })
+  handle(CHANNELS.removeAgent, (i: unknown) => sessionTrash.remove(db, id(i)))
+  handle(CHANNELS.undoRemoveAgent, (i: unknown) => sessionTrash.restore(db, id(i)))
   handle(CHANNELS.noteFromAgent, (sessionId: unknown, t: unknown, plan: unknown) =>
     noteFromSession(db, text(sessionId), text(t), oneOf<PlanTarget>(PLANS, plan, 'plan'), Date.now(), ctx.settings().dayStartHour),
   )

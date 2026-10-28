@@ -5,7 +5,7 @@ import { groupTimeline, type EntryKind, type TimelineEntry } from '@shared/calen
 import { dayKey } from '@shared/day'
 import { clock, dayTitle, monthDay } from '@shared/format'
 import { bucketOf, firstDayOf, isTopLevelWork, type ListSettings } from '@shared/lists'
-import { scheduleLabel } from '@shared/schedule'
+import { rhythmLabel } from '@shared/schedule'
 import type { Clip } from '@shared/clips'
 import type { AgentSession, Item, TimelineEvent } from '@shared/types'
 import { listAgentSessions } from '../db/agents'
@@ -91,7 +91,7 @@ function workLines(items: readonly Item[], work: readonly Item[]): string[] {
 }
 
 function routineLine(r: Item): string {
-  const rhythm = r.schedule ? scheduleLabel(r.schedule) : r.intervalDays !== null ? `每 ${r.intervalDays} 天` : '只記上次'
+  const rhythm = rhythmLabel(r)
   const last = r.lastDoneAt !== null ? `上次 ${monthDay(r.lastDoneAt)}` : '還沒做過'
   return `- ${oneLine(r.title)} · ${rhythm}${r.schedule ? '' : ` · ${last}`}`
 }

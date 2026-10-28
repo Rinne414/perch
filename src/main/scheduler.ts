@@ -7,7 +7,7 @@ import { listOpenItems, rolloverPlans, updateItem } from './db/items'
 import { transaction } from './db/transaction'
 import { notify } from './notify'
 import { sessionCutoff } from './restore'
-import { agentAlert, agentsToNotify, dueAlert, dueItemsToNotify } from './services/reminders'
+import { agentAlert, agentsToNotify, dueAlert, dueItemsToNotify, monthlyAlert, monthlyToNotify } from './services/reminders'
 import { scheduleAlerts } from './services/scheduleAlerts'
 import { clearExpiredClips } from './services/clips'
 import { clipsDir } from './paths'
@@ -33,11 +33,20 @@ export function startScheduler(ctx: AppContext, beforeTick: () => void = () => u
     const now = Date.now()
     let changed = rolloverPlans(db, dayKey(now, settings.dayStartHour), now) > 0
 
-    const due = dueItemsToNotify(listOpenItems(db), now, settings)
+    const open = listOpenItems(db)
+    const due = dueItemsToNotify(open, now, settings)
     const alert = dueAlert(due)
     if (alert) {
       transaction(db, () => due.forEach((i) => updateItem(db, i.id, { notifiedAt: now }, now)))
       notify(alert, () => ctx.showFloat('todo'))
+      changed = true
+    }
+
+    const monthly = monthlyToNotify(open, now, settings)
+    const monthlyNote = monthlyAlert(monthly, now, settings)
+    if (monthlyNote) {
+      transaction(db, () => monthly.forEach((i) => updateItem(db, i.id, { notifiedAt: now }, now)))
+      notify(monthlyNote, () => ctx.showFloat('todo'))
       changed = true
     }
 

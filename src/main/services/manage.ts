@@ -6,7 +6,7 @@ import type { BatchTarget, FocusState, MainPayload, PlanTarget } from '@shared/i
 import { buildMainView } from '@shared/mainView'
 import { isOneShot, isRunning, isSettled, needsAttention } from '@shared/now'
 import type { RestoreSummary } from '@shared/restore'
-import type { Item, ItemPatch, RoutineSchedule } from '@shared/types'
+import type { Item, ItemPatch, MonthlyRule, RoutineSchedule } from '@shared/types'
 import { listAgentSessions } from '../db/agents'
 import {
   createItem,
@@ -114,17 +114,19 @@ function checkInterval(days: number | null): void {
   }
 }
 
-/** A schedule makes a fixed-time routine; it then has no interval. */
+/** A schedule makes a fixed-time routine and a monthly rule a monthly one; either has no interval. */
 export function createRoutine(
   db: DatabaseSync,
   title: string,
   intervalDays: number | null,
   now: number,
   schedule: RoutineSchedule | null = null,
+  monthly: MonthlyRule | null = null,
 ): Item {
-  const days = schedule ? null : intervalDays
+  if (schedule && monthly) throw new Error('A routine is weekly or monthly, not both')
+  const days = schedule || monthly ? null : intervalDays
   checkInterval(days)
-  return createItem(db, { kind: 'routine', title, intervalDays: days, schedule }, now)
+  return createItem(db, { kind: 'routine', title, intervalDays: days, schedule, monthly }, now)
 }
 
 export function updateRoutine(
@@ -134,11 +136,14 @@ export function updateRoutine(
   intervalDays: number | null,
   now: number,
   schedule: RoutineSchedule | null = null,
+  monthly: MonthlyRule | null = null,
 ): Item {
-  const days = schedule ? null : intervalDays
+  if (schedule && monthly) throw new Error('A routine is weekly or monthly, not both')
+  const days = schedule || monthly ? null : intervalDays
   checkInterval(days)
   if (requireItem(db, id).kind !== 'routine') throw new Error('Not a routine')
-  return updateItem(db, id, { title, intervalDays: days, schedule }, now)
+  // A monthly date that is already open after the edit is in plain sight: no notification for it.
+  return updateItem(db, id, { title, intervalDays: days, schedule, monthly, notifiedAt: monthly ? now : null }, now)
 }
 
 /**

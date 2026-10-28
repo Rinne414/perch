@@ -30,6 +30,7 @@ function item(over: Partial<Item>): Item {
     notifiedAt: null,
     source: 'user',
     schedule: null,
+    monthly: null,
     project: null,
     ...over,
   }

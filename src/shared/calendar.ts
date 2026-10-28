@@ -11,6 +11,8 @@ export interface DayMarks {
   readonly schedules: readonly string[]
   /** Open work whose deadline falls on that day. */
   readonly dues: readonly string[]
+  /** Folders agents worked in that day (by name), busiest first. */
+  readonly projects: readonly string[]
 }
 
 export type EntryKind = 'done' | 'routine' | 'agent' | 'agent-failed' | 'focus' | 'dropped' | 'manual' | 'power'
@@ -24,6 +26,8 @@ export interface TimelineEntry {
   readonly detail: string | null
   /** False for a manual entry written without a time. */
   readonly hasTime: boolean
+  /** Agent replies: the folder the agent worked in, when known. */
+  readonly cwd: string | null
 }
 
 export interface DaySummary {
@@ -39,7 +43,13 @@ export interface DaySummary {
 /** A line of a day's timeline: one event, or every reply of one agent in one project that day. */
 export type TimelineLine =
   | { readonly kind: 'entry'; readonly entry: TimelineEntry }
-  | { readonly kind: 'agent-group'; readonly title: string; readonly replies: readonly TimelineEntry[] }
+  | {
+      readonly kind: 'agent-group'
+      readonly title: string
+      readonly replies: readonly TimelineEntry[]
+      /** The folder of those replies, when known. */
+      readonly cwd: string | null
+    }
 
 const isAgentReply = (e: TimelineEntry): boolean => e.kind === 'agent' || e.kind === 'agent-failed'
 
@@ -59,7 +69,8 @@ export function groupTimeline(entries: readonly TimelineEntry[]): TimelineLine[]
     if (!isAgentReply(e)) return [{ kind: 'entry', entry: e }]
     const group = replies.get(e.title)!
     if (group[0] !== e) return []
-    return [group.length === 1 ? { kind: 'entry', entry: e } : { kind: 'agent-group', title: e.title, replies: group }]
+    if (group.length === 1) return [{ kind: 'entry', entry: e }]
+    return [{ kind: 'agent-group', title: e.title, replies: group, cwd: group.find((r) => r.cwd)?.cwd ?? null }]
   })
 }
 
@@ -74,7 +85,7 @@ export interface DayView {
   readonly planned: readonly Item[]
   /** Open work due that day (today and later). */
   readonly dues: readonly Item[]
-  /** Future days: every-N-days routines expected to come due that day. */
+  /** Future days: every-N-days routines expected to come due that day, and monthly ones on their date. */
   readonly routinesDue: readonly Item[]
   /** The person's note for the day (the diary); empty when none. */
   readonly note: string

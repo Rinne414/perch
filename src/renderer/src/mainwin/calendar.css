@@ -1,14 +1,15 @@
-/* 日曆: the month like the Windows tray calendar, and the chosen day beside it. */
+/* 日曆: the month like the Windows tray calendar, and the chosen day beside it, both as tall as the window. */
 .mw .cal-wrap {
+  flex: 1 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: 22px;
-  align-items: start;
   min-height: 0;
 }
 
 .mw .cal {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 8px;
   min-width: 0;
 }
@@ -47,6 +48,11 @@
   gap: 4px;
 }
 
+/* The weeks share the free height; a short window keeps them at their old size and scrolls. */
+.mw .month {
+  grid-auto-rows: minmax(72px, 1fr);
+}
+
 .mw .weekdays span {
   padding: 0 6px;
   font-size: 11.5px;
@@ -54,9 +60,9 @@
 }
 
 .mw .day {
-  height: 72px;
+  min-height: 0;
   min-width: 0;
-  padding: 5px 5px 4px;
+  padding: 5px 4px 4px;
   border: 1px solid transparent;
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.035);
@@ -100,20 +106,22 @@
   background: rgba(157, 184, 255, 0.1);
 }
 
+/* One label per line under the date; CalendarTab works out how many fit. */
 .mw .marks {
-  margin-top: auto;
   display: flex;
-  flex-wrap: wrap;
-  gap: 2px 3px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .mw .mark {
   max-width: 100%;
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 4px;
-  font-size: 10.5px;
-  line-height: 16px;
+  font-size: 11.5px;
+  line-height: 17px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -132,6 +140,34 @@
 .mw .mark.done {
   background: rgba(110, 231, 176, 0.12);
   color: var(--done);
+}
+
+/* Agent work that day: one quiet count at the bottom of the cell, a dot instead of a box. */
+.mw .agent-line {
+  margin-top: auto;
+  padding-left: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  line-height: 17px;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.mw .agent-line::before {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.mw .day:hover .agent-line,
+.mw .day.sel .agent-line {
+  color: var(--dim);
 }
 
 .mw .mark.more {
@@ -164,6 +200,13 @@
 
 .mw .legend .done {
   background: rgba(110, 231, 176, 0.5);
+}
+
+.mw .legend .agent {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--faint);
 }
 
 /* The chosen day */
@@ -313,6 +356,32 @@
   opacity: 1;
 }
 
+/* The folder an agent worked in is always one click away. */
+.mw .tl-entry .act.folder {
+  opacity: 1;
+  color: var(--dim);
+}
+
+.mw .tl-entry .act.folder:hover {
+  color: var(--text);
+}
+
+.mw .tl-acts {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* A line added on a future day: planned, or due that day. */
+.mw .add-on-day {
+  display: grid;
+  gap: 6px;
+}
+
+.mw .add-on-day .seg {
+  justify-self: start;
+}
+
 .mw .day-input {
   margin-top: auto;
 }
@@ -387,6 +456,7 @@
 
 @media (max-width: 900px) {
   .mw .cal-wrap {
+    flex: none;
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -429,4 +499,9 @@
 .mw .note-box:focus {
   outline: none;
   border-color: rgba(157, 184, 255, 0.7);
+}
+
+/* A count in brackets moves to the next line whole instead of breaking inside. */
+.mw .stat .nb {
+  white-space: nowrap;
 }

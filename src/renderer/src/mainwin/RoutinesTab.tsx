@@ -2,7 +2,8 @@ import { Fragment, useState } from 'react'
 import { monthDay } from '@shared/format'
 import type { MainPayload } from '@shared/ipc'
 import type { RoutineState } from '@shared/lists'
-import { nextOccurrence, scheduleLabel } from '@shared/schedule'
+import { monthlyWhen } from '@shared/monthly'
+import { nextOccurrence, rhythmLabel, scheduleLabel } from '@shared/schedule'
 import { CheckIcon, PlusIcon } from '../components/Icons'
 import { nextLabel } from '../components/ScheduleRow'
 import { useCompleting } from '../float/rows'
@@ -18,6 +19,8 @@ const sinceLabel = (daysSince: number | null): string =>
 interface RowProps {
   readonly state: RoutineState
   readonly now: number
+  /** Today's day key, for a monthly routine's "還有 2 天". */
+  readonly day: string
   readonly historyOpen: boolean
   readonly onEdit: () => void
   readonly onHistory: () => void
@@ -64,16 +67,22 @@ function ScheduledRow({ state, now, onEdit, onHistory }: RowProps): React.JSX.El
   )
 }
 
-function RoutineRow({ state, historyOpen, onEdit, onHistory }: RowProps): React.JSX.Element {
-  const { item, daysSince, dueIn, isDue } = state
+/** The right-hand words: how long ago, how long to go, or for a monthly one its date. */
+function whenLabel({ item, daysSince, dueIn, isDue, dueOn }: RoutineState, day: string): string {
+  if (item.monthly && dueOn) return monthlyWhen(dueOn, isDue, day)
+  return dueIn === null || isDue ? sinceLabel(daysSince) : `還有 ${dueIn} 天`
+}
+
+function RoutineRow({ state, day, historyOpen, onEdit, onHistory }: RowProps): React.JSX.Element {
+  const { item, dueIn, isDue } = state
   const [checked, complete] = useCompleting(() => window.api.complete(item.id))
-  const interval = item.intervalDays
+  const interval = state.cycleDays
   // Due: fills from half (just due) to full (twice the interval). Not due: how much of the wait has passed.
   const fill =
     interval === null || dueIn === null
       ? 0
       : isDue
-        ? Math.min(1, (interval - dueIn) / (interval * 2))
+        ? Math.min(1, Math.max(0.04, (interval - dueIn) / (interval * 2)))
         : Math.max(0.04, (interval - dueIn) / interval)
   return (
     <li className={`row routine${checked ? ' checked' : ''}${historyOpen ? ' selected' : ''}`}>
@@ -83,13 +92,13 @@ function RoutineRow({ state, historyOpen, onEdit, onHistory }: RowProps): React.
       <button className="main open" aria-expanded={historyOpen} onClick={onHistory}>
         <span className="title">{item.title}</span>
         <span className="sub">
-          {interval === null ? '只記上次' : `每 ${interval} 天`}
+          {rhythmLabel(item)}
           {item.lastDoneAt !== null && ` · 上次 ${monthDay(item.lastDoneAt)}`}
         </span>
       </button>
       <div className="end">
         <RowActions state={state} onEdit={onEdit} onHistory={onHistory} />
-        <span className="when">{dueIn === null || isDue ? sinceLabel(daysSince) : `還有 ${dueIn} 天`}</span>
+        <span className="when">{whenLabel(state, day)}</span>
         {interval !== null && (
           <span className="meter" aria-hidden="true">
             <i className={isDue ? undefined : 'ok'} style={{ transform: `scaleX(${fill})` }} />
@@ -111,6 +120,7 @@ const draftOf = (s: RoutineState): RoutineDraft => ({
   title: s.item.title,
   intervalDays: s.item.intervalDays,
   schedule: s.item.schedule,
+  monthly: s.item.monthly,
 })
 
 export function RoutinesTab({ payload, at }: { payload: MainPayload; at: number }): React.JSX.Element {
@@ -130,7 +140,7 @@ export function RoutinesTab({ payload, at }: { payload: MainPayload; at: number 
             onCancel={() => setEditing(null)}
             onSubmit={(d) => {
               setEditing(null)
-              run(() => window.api.updateRoutine(s.item.id, d.title, d.intervalDays, d.schedule))
+              run(() => window.api.updateRoutine(s.item.id, d.title, d.intervalDays, d.schedule, d.monthly))
             }}
           />
         )
@@ -138,6 +148,7 @@ export function RoutinesTab({ payload, at }: { payload: MainPayload; at: number 
       const props: RowProps = {
         state: s,
         now: at,
+        day: payload.view.day,
         historyOpen: history === s.item.id,
         onEdit: () => setEditing(s.item.id),
         onHistory: () => setHistory(history === s.item.id ? null : s.item.id),
@@ -161,7 +172,7 @@ export function RoutinesTab({ payload, at }: { payload: MainPayload; at: number 
     <>
       <header className="ph">
         <h1>例行</h1>
-        <p>固定行程、每幾天一次、只記上次</p>
+        <p>固定行程、每月、每幾天一次、只記上次</p>
         <button className="btn push" onClick={() => setAdding(true)} disabled={adding}>
           <PlusIcon /> 新增例行
         </button>
@@ -174,7 +185,7 @@ export function RoutinesTab({ payload, at }: { payload: MainPayload; at: number 
             onCancel={() => setAdding(false)}
             onSubmit={(d) => {
               setAdding(false)
-              run(() => window.api.createRoutine(d.title, d.intervalDays, d.schedule))
+              run(() => window.api.createRoutine(d.title, d.intervalDays, d.schedule, d.monthly))
             }}
           />
         </ul>
@@ -197,7 +208,7 @@ export function RoutinesTab({ payload, at }: { payload: MainPayload; at: number 
       {payload.view.routines.length === 0 && !adding && (
         <div className="mw-empty">
           <p>還沒有例行事項。</p>
-          <p className="faint">上班、運動、換牙刷…固定時間的會出現在今天的行程；每幾天一次的，太久沒做時浮窗會提醒你。</p>
+          <p className="faint">上班、繳卡費、運動、換牙刷…固定時間的會出現在今天的行程；每月的到了那天、每幾天一次的太久沒做，浮窗會提醒你。</p>
         </div>
       )}
     </>

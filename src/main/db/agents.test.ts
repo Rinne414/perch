@@ -40,7 +40,7 @@ describe('applyAgentEvent', () => {
     expect(getAgentSession(db, 'claude-code:s1')?.attentionAt).toBe(T0 + 10)
     const timeline = listEvents(db, 0, T0 + 100)
     expect(timeline.map((e) => [e.type, e.title, e.data])).toEqual([
-      ['agent.status', 'Claude Code · perch', { status: 'done', prompt: '修 bug' }],
+      ['agent.status', 'Claude Code · perch', { status: 'done', prompt: '修 bug', cwd: 'L:\\code\\perch' }],
     ])
   })
 
@@ -184,6 +184,7 @@ describe('migration 7', () => {
         `INSERT INTO agent_sessions (id, agent, session_id, status, started_at, updated_at)
          VALUES ('claude-code:x', 'claude-code', 'x', 'running', 1, 42)`,
       )
+      old.exec('ALTER TABLE items DROP COLUMN monthly')
       old.exec('PRAGMA user_version = 6')
       old.close()
 

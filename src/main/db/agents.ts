@@ -120,7 +120,7 @@ export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): A
         title: where ? `${agentName(e.agent)} · ${where}` : agentName(e.agent),
         agentSessionId: id,
         source: `agent:${e.agent}`,
-        data: { status: e.status, ...(next.title ? { prompt: next.title } : {}) },
+        data: { status: e.status, ...(next.title ? { prompt: next.title } : {}), ...(next.cwd ? { cwd: next.cwd } : {}) },
       })
     }
     return next
@@ -179,9 +179,14 @@ export function listSessionsIn(db: DatabaseSync, cwd: string, limit: number): Ag
   return rows.map(toSession)
 }
 
-/** Whether any agent session reported working in this folder. */
+/** Whether any agent session reported working in this folder, including sessions since removed from the list. */
 export function isKnownWorkFolder(db: DatabaseSync, cwd: string): boolean {
-  return db.prepare('SELECT 1 FROM agent_sessions WHERE cwd = ? LIMIT 1').get(cwd) !== undefined
+  if (db.prepare('SELECT 1 FROM agent_sessions WHERE cwd = ? LIMIT 1').get(cwd) !== undefined) return true
+  return (
+    db
+      .prepare("SELECT 1 FROM events WHERE type = 'agent.status' AND json_extract(data, '$.cwd') = ? LIMIT 1")
+      .get(cwd) !== undefined
+  )
 }
 
 export function deleteAgentSessionsByAgent(db: DatabaseSync, agent: string): number {
@@ -254,4 +259,32 @@ export function markSessionsReopened(db: DatabaseSync, ids: readonly string[], a
   transaction(db, () => {
     for (const id of ids) stmt.run(at, id)
   })
+}
+
+/** A session's raw row, so taking it off the list can be undone exactly. */
+export type SessionSnapshot = Readonly<SessionRow>
+
+const SESSION_COLUMNS = [
+  'id', 'agent', 'session_id', 'cwd', 'name', 'title', 'status', 'detail', 'started_at', 'updated_at',
+  'attention_at', 'acknowledged_at', 'ended_at', 'reopened_at',
+] as const satisfies readonly (keyof SessionRow)[]
+
+/**
+ * Takes a session off Perch's list and returns what was removed. Its replies stay on the
+ * calendar; the agent's own conversation files are never touched.
+ */
+export function takeAgentSession(db: DatabaseSync, id: string): SessionSnapshot {
+  return transaction(db, () => {
+    const row = db.prepare('SELECT * FROM agent_sessions WHERE id = ?').get(id) as SessionRow | undefined
+    if (!row) throw new Error(`Session not found: ${id}`)
+    db.prepare('DELETE FROM agent_sessions WHERE id = ?').run(id)
+    return row
+  })
+}
+
+/** Puts back a row from takeAgentSession; a session that reported again meanwhile keeps its newer row. */
+export function restoreAgentSession(db: DatabaseSync, row: SessionSnapshot): void {
+  db.prepare(
+    `INSERT OR IGNORE INTO agent_sessions (${SESSION_COLUMNS.join(', ')}) VALUES (${SESSION_COLUMNS.map(() => '?').join(', ')})`,
+  ).run(...SESSION_COLUMNS.map((c) => row[c]))
 }

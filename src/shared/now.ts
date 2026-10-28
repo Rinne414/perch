@@ -1,6 +1,6 @@
 import { ATTENTION_STATUSES } from './agents'
 import { dayKey, daysBetween } from './day'
-import { bucketOf, dueDayOf, isTopLevelWork, nextSteps, routineState, type ListSettings } from './lists'
+import { bucketOf, dueDayOf, isTopLevelWork, nextSteps, routineState, type ListSettings, type RoutineState } from './lists'
 import { occurrencesOn, type Occurrence } from './schedule'
 import type { AgentSession, Item } from './types'
 
@@ -17,9 +17,22 @@ export interface RoutineEntry {
   readonly item: Item
   /** Null when the routine has never been done. */
   readonly daysSince: number | null
-  /** Days beyond the wanted interval (0 = due today). */
+  /** Days beyond the wanted interval or date (0 = due today; negative inside a monthly reminder lead). */
   readonly overdueBy: number
+  /** The interval, or the days between two dates of a monthly routine. */
+  readonly cycleDays: number
+  /** Monthly routines: the date it is due for. */
+  readonly dueOn: string | null
 }
+
+/** A due routine as the lists show it. */
+export const routineEntry = (s: RoutineState): RoutineEntry => ({
+  item: s.item,
+  daysSince: s.daysSince,
+  overdueBy: -(s.dueIn ?? 0),
+  cycleDays: Math.max(1, s.cycleDays ?? 1),
+  dueOn: s.dueOn,
+})
 
 export interface NowView {
   readonly day: string
@@ -121,14 +134,12 @@ export function buildNow(
     else if (bucket === 'old') staleCount++
   }
 
-  const routines: RoutineEntry[] = []
-  for (const item of items) {
-    if (item.kind !== 'routine' || item.parentId !== null || item.intervalDays === null) continue
-    const state = routineState(item, day, settings.dayStartHour)
-    if (!state.isDue) continue
-    routines.push({ item, daysSince: state.daysSince, overdueBy: -state.dueIn! })
-  }
-  routines.sort((a, b) => b.overdueBy / b.item.intervalDays! - a.overdueBy / a.item.intervalDays!)
+  const routines = items
+    .filter((i) => i.kind === 'routine' && i.parentId === null)
+    .map((i) => routineState(i, day, settings.dayStartHour))
+    .filter((s) => s.isDue)
+    .map(routineEntry)
+    .sort((a, b) => b.overdueBy / b.cycleDays - a.overdueBy / a.cycleDays)
 
   return {
     day,

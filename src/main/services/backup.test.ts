@@ -76,6 +76,7 @@ describe('opening a database', () => {
     old.exec('DROP TABLE day_notes')
     old.exec('DROP INDEX items_project')
     old.exec('ALTER TABLE items DROP COLUMN project')
+    old.exec('ALTER TABLE items DROP COLUMN monthly')
     old.exec('PRAGMA user_version = 3')
     old.close()
 

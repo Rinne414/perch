@@ -64,6 +64,38 @@
   color: var(--text);
 }
 
+/* Days of the month of a monthly routine: a small calendar page. */
+.mw .md {
+  display: grid;
+  grid-template-columns: repeat(7, 34px);
+  gap: 5px;
+}
+
+.mw .md button {
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: none;
+  color: var(--dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--fast), color var(--fast), border-color var(--fast);
+}
+
+.mw .md button:hover {
+  color: var(--text);
+}
+
+.mw .md button.on {
+  background: rgba(157, 184, 255, 0.22);
+  border-color: rgba(157, 184, 255, 0.6);
+  color: var(--text);
+}
+
+.mw .md + .form-note {
+  margin-top: 6px;
+}
+
 .mw .times {
   display: grid;
   gap: 6px;

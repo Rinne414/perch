@@ -1,4 +1,5 @@
 import { addDays } from './day'
+import { monthlyLabel } from './monthly'
 import type { Item, RoutineSchedule, ScheduleSlot } from './types'
 
 const MINUTE = 60_000
@@ -123,4 +124,11 @@ export function scheduleLabel(schedule: RoutineSchedule): string {
     .sort((a, b) => a.weekday - b.weekday || a.start.localeCompare(b.start))
     .map((s) => `週${WEEKDAY_NAMES[s.weekday]} ${s.start}–${s.end}`)
     .join(' · ')
+}
+
+/** How often a routine comes round, in one line: "週三 16:00–19:00", "每月 5 號", "每 7 天", "只記上次". */
+export function rhythmLabel(item: Pick<Item, 'schedule' | 'monthly' | 'intervalDays'>): string {
+  if (item.schedule) return scheduleLabel(item.schedule)
+  if (item.monthly) return monthlyLabel(item.monthly)
+  return item.intervalDays !== null ? `每 ${item.intervalDays} 天` : '只記上次'
 }

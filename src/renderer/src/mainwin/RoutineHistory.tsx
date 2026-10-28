@@ -31,7 +31,8 @@ function recordLabel(at: number, backfilled: boolean, dayStartHour: number): str
 
 /** A one-click fix when the real rhythm differs from the goal by a day or more. */
 function suggestedInterval(routine: Item, averageDays: number | null): number | null {
-  if (averageDays === null) return null
+  // A monthly routine follows the calendar, not a rhythm.
+  if (averageDays === null || routine.monthly) return null
   const rounded = Math.max(1, Math.round(averageDays))
   return rounded === routine.intervalDays ? null : rounded
 }

@@ -1,5 +1,8 @@
 import { agentName, STATUS_LABEL } from '@shared/agents'
+import { addDays, dayKey } from '@shared/day'
 import { clock } from '@shared/format'
+import { routineState } from '@shared/lists'
+import { monthlyWhen } from '@shared/monthly'
 import { needsAttention } from '@shared/now'
 import type { AgentSession, Item } from '@shared/types'
 import type { AppSettings } from './settings'
@@ -32,11 +35,40 @@ export function dueAlert(items: readonly Item[]): Alert | null {
   if (items.length === 0) return null
   if (items.length === 1) {
     const [i] = items
-    return { title: `到期：${i.title}`, body: i.dueHasTime && i.dueAt !== null ? clock(i.dueAt) : '今天' }
+    return { title: `截止：${i.title}`, body: i.dueHasTime && i.dueAt !== null ? clock(i.dueAt) : '今天' }
   }
   const listed = items.slice(0, MAX_LISTED).map((i) => i.title).join('、')
   const more = items.length > MAX_LISTED ? ` 等 ${items.length} 件` : ''
-  return { title: `有 ${items.length} 件事到期`, body: listed + more }
+  return { title: `有 ${items.length} 件事到了截止時間`, body: listed + more }
+}
+
+/**
+ * Monthly routines whose current date just opened (the morning of the first day they show) and
+ * that have not been announced for it. Announced once per date, never when created already open.
+ */
+export function monthlyToNotify(items: readonly Item[], now: number, settings: AppSettings): Item[] {
+  const day = dayKey(now, settings.dayStartHour)
+  return items.filter((i) => {
+    if (i.kind !== 'routine' || i.parentId !== null || !i.monthly) return false
+    const state = routineState(i, day, settings.dayStartHour)
+    if (!state.isDue || state.dueOn === null) return false
+    const [y, m, d] = addDays(state.dueOn, -i.monthly.leadDays).split('-').map(Number)
+    const opensAt = new Date(y, m - 1, d, settings.morningHour).getTime()
+    return opensAt <= now && Math.max(i.notifiedAt ?? 0, i.createdAt) < opensAt
+  })
+}
+
+/** One notification for the monthly routines that came round. */
+export function monthlyAlert(items: readonly Item[], now: number, settings: AppSettings): Alert | null {
+  if (items.length === 0) return null
+  const day = dayKey(now, settings.dayStartHour)
+  if (items.length === 1) {
+    const state = routineState(items[0], day, settings.dayStartHour)
+    return { title: `該做了：${items[0].title}`, body: state.dueOn ? monthlyWhen(state.dueOn, true, day) : '' }
+  }
+  const listed = items.slice(0, MAX_LISTED).map((i) => i.title).join('、')
+  const more = items.length > MAX_LISTED ? ` 等 ${items.length} 件` : ''
+  return { title: `有 ${items.length} 件每月例行該做了`, body: listed + more }
 }
 
 /** How long a state must last before it is worth interrupting for (the person may be watching). */

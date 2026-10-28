@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { DEFAULT_REMIND_MINUTES, normaliseTime } from '@shared/schedule'
-import type { RoutineSchedule, ScheduleSlot } from '@shared/types'
+import type { MonthlyRule, RoutineSchedule, ScheduleSlot } from '@shared/types'
 
 const MAX_DAYS = 3650
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
@@ -13,13 +13,25 @@ const REMINDERS: readonly { minutes: number | null; label: string }[] = [
 
 const DEFAULT_SLOT = { start: '09:00', end: '10:00' }
 
-type Kind = 'schedule' | 'interval' | 'tracker'
+/** When a monthly routine starts showing and reminds. */
+const LEADS: readonly { days: number; label: string }[] = [
+  { days: 0, label: '當天' },
+  { days: 1, label: '前 1 天' },
+  { days: 3, label: '前 3 天' },
+  { days: 7, label: '前 7 天' },
+]
+const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
+/** Days some months lack; picking one gets a note that it moves to the month's last day. */
+const SHORT_MONTH_DAY = 29
+
+type Kind = 'schedule' | 'monthly' | 'interval' | 'tracker'
 type Times = Readonly<Record<number, { start: string; end: string }>>
 
 export interface RoutineDraft {
   readonly title: string
   readonly intervalDays: number | null
   readonly schedule: RoutineSchedule | null
+  readonly monthly: MonthlyRule | null
 }
 
 interface Props {
@@ -30,7 +42,7 @@ interface Props {
 }
 
 const kindOf = (d: RoutineDraft | undefined): Kind =>
-  d?.schedule ? 'schedule' : d && d.intervalDays === null ? 'tracker' : 'interval'
+  d?.schedule ? 'schedule' : d?.monthly ? 'monthly' : d && d.intervalDays === null ? 'tracker' : 'interval'
 
 const timesOf = (schedule: RoutineSchedule | null | undefined): Times =>
   Object.fromEntries((schedule?.slots ?? []).map((s) => [s.weekday, { start: s.start, end: s.end }]))
@@ -84,19 +96,59 @@ function WeeklyTimes({ times, onChange }: { times: Times; onChange: (next: Times
   )
 }
 
-/** New or edited routine: fixed weekly times, every N days, or only "last time". */
+/** Which days of the month, like a small calendar page, and how early to start reminding. */
+function MonthDays({ rule, onChange }: { rule: MonthlyRule; onChange: (next: MonthlyRule) => void }): React.JSX.Element {
+  const toggle = (day: number): void => {
+    const days = rule.days.includes(day) ? rule.days.filter((d) => d !== day) : [...rule.days, day].sort((a, b) => a - b)
+    onChange({ ...rule, days })
+  }
+  return (
+    <>
+      <span>日期</span>
+      <div>
+        <div className="md" role="group" aria-label="每月幾號">
+          {MONTH_DAYS.map((day) => (
+            <button key={day} className={rule.days.includes(day) ? 'on' : undefined} aria-pressed={rule.days.includes(day)} onClick={() => toggle(day)}>
+              {day}
+            </button>
+          ))}
+        </div>
+        <p className="hint form-note">
+          {rule.days.length === 0
+            ? '點幾號，可以選好幾天'
+            : `每月 ${rule.days.join('、')} 號，那天起出現在今天和浮窗，按「做了」才算這個月做完`}
+          {rule.days.some((d) => d >= SHORT_MONTH_DAY) && '；沒有這一天的月份算月底'}
+        </p>
+      </div>
+      <span>提醒</span>
+      <div className="chips">
+        {LEADS.map((l) => (
+          <button key={l.days} className={`chip${rule.leadDays === l.days ? ' on' : ''}`} aria-pressed={rule.leadDays === l.days} onClick={() => onChange({ ...rule, leadDays: l.days })}>
+            {l.label}
+          </button>
+        ))}
+      </div>
+    </>
+  )
+}
+
+/** New or edited routine: fixed weekly times, days of every month, every N days, or only "last time". */
 export function RoutineForm({ initial, submitLabel, onSubmit, onCancel }: Props): React.JSX.Element {
   const [title, setTitle] = useState(initial?.title ?? '')
   const [kind, setKind] = useState<Kind>(kindOf(initial))
   const [days, setDays] = useState(String(initial?.intervalDays ?? 7))
   const [times, setTimes] = useState<Times>(timesOf(initial?.schedule))
   const [remind, setRemind] = useState<number | null>(initial?.schedule ? initial.schedule.remindMinutes : DEFAULT_REMIND_MINUTES)
+  const [monthly, setMonthly] = useState<MonthlyRule>(initial?.monthly ?? { days: [], leadDays: 0 })
 
   const n = Number(days)
   const slots = kind === 'schedule' ? slotsFrom(times) : null
   const valid =
     title.trim().length > 0 &&
-    (kind === 'tracker' || (kind === 'interval' && Number.isInteger(n) && n >= 1 && n <= MAX_DAYS) || (kind === 'schedule' && slots !== null))
+    (kind === 'tracker' ||
+      (kind === 'interval' && Number.isInteger(n) && n >= 1 && n <= MAX_DAYS) ||
+      (kind === 'schedule' && slots !== null) ||
+      (kind === 'monthly' && monthly.days.length > 0))
 
   const submit = (): void => {
     if (!valid) return
@@ -104,6 +156,7 @@ export function RoutineForm({ initial, submitLabel, onSubmit, onCancel }: Props)
       title: title.trim(),
       intervalDays: kind === 'interval' ? n : null,
       schedule: kind === 'schedule' && slots ? { slots, remindMinutes: remind } : null,
+      monthly: kind === 'monthly' ? monthly : null,
     })
   }
   const keys = (e: React.KeyboardEvent): void => {
@@ -126,6 +179,7 @@ export function RoutineForm({ initial, submitLabel, onSubmit, onCancel }: Props)
             {(
               [
                 ['schedule', '固定時間'],
+                ['monthly', '每月'],
                 ['interval', '每幾天一次'],
                 ['tracker', '只記上次'],
               ] as const
@@ -149,6 +203,7 @@ export function RoutineForm({ initial, submitLabel, onSubmit, onCancel }: Props)
             </div>
           </>
         )}
+        {kind === 'monthly' && <MonthDays rule={monthly} onChange={setMonthly} />}
         {kind === 'interval' && (
           <>
             <span>間隔</span>

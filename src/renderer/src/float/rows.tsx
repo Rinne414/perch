@@ -1,5 +1,8 @@
 import { useState } from 'react'
+import { addDays } from '@shared/day'
 import { clock, daysAgoLabel, shortDayLabel } from '@shared/format'
+import { monthlyWhen } from '@shared/monthly'
+import { rhythmLabel } from '@shared/schedule'
 import type { FocusState } from '@shared/ipc'
 import type { UpcomingEntry } from '@shared/mainView'
 import type { RoutineEntry, TodayEntry } from '@shared/now'
@@ -148,11 +151,17 @@ export function IdeaRow({ item, now, dayStartHour, onEdit }: { item: Item; now: 
   )
 }
 
+/** "3 天前", or for a monthly routine its date: "10/30 · 還有 2 天", "10/5 · 晚了 3 天". */
+function routineWhen({ daysSince, overdueBy, dueOn }: RoutineEntry): string {
+  // overdueBy counts from the date to today, so today is that many days after it.
+  if (dueOn) return monthlyWhen(dueOn, true, addDays(dueOn, overdueBy))
+  return daysSince === null ? '還沒做過' : `${daysSince} 天前`
+}
+
 export function RoutineRow({ entry }: { entry: RoutineEntry }): React.JSX.Element {
-  const { item, daysSince, overdueBy } = entry
+  const { item, overdueBy, cycleDays } = entry
   const [checked, complete] = useCompleting(() => window.api.complete(item.id))
-  const interval = item.intervalDays ?? 1
-  const fill = Math.min(1, (interval + overdueBy) / (interval * 2))
+  const fill = Math.min(1, Math.max(0.04, (cycleDays + overdueBy) / (cycleDays * 2)))
   return (
     <li className={`row routine${checked ? ' checked' : ''}`}>
       <button className="check" aria-label={`做了：${item.title}`} onClick={complete}>
@@ -160,10 +169,10 @@ export function RoutineRow({ entry }: { entry: RoutineEntry }): React.JSX.Elemen
       </button>
       <div className="main">
         <div className="title">{item.title}</div>
-        <div className="sub">目標每 {interval} 天</div>
+        <div className="sub">{item.monthly ? rhythmLabel(item) : `目標每 ${cycleDays} 天`}</div>
       </div>
       <div className="end">
-        <span>{daysSince === null ? '還沒做過' : `${daysSince} 天前`}</span>
+        <span>{routineWhen(entry)}</span>
         <span className="meter" aria-hidden="true">
           <i style={{ transform: `scaleX(${fill})` }} />
         </span>

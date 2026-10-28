@@ -213,7 +213,7 @@ export function PhoneSection(): React.JSX.Element {
             <p className="faint set-empty">還沒有配對的手機。</p>
           )}
           <p className="faint set-empty">
-            電腦上跳的通知（agent 等你、跑完、失敗，到期、行程，一分鐘後關機）都會同步推到開了通知的手機。推播經過 Google
+            電腦上跳的通知（agent 等你、跑完、失敗，截止、行程，一分鐘後關機）都會同步推到開了通知的手機。推播經過 Google
             的伺服器，內容是加密的。
           </p>
         </>

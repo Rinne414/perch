@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { monthGrid, type DayMarks } from '@shared/calendar'
 import type { MainPayload } from '@shared/ipc'
 import { DayPanel } from './DayPanel'
@@ -6,8 +6,31 @@ import { useToast } from '../components/Toast'
 import './calendar.css'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
-/** A cell has room for two small labels; the rest become "+N". */
-const MARKS_PER_CELL = 2
+/** The fewest labels a cell shows; taller cells (a taller window) show more, the rest become "+N". */
+const MIN_MARKS = 2
+/** Height a cell needs for its date and padding, and for each label line (17px line + 2px gap). */
+const CELL_TOP_PX = 35
+const MARK_LINE_PX = 19
+const MONTH_GAP_PX = 4
+
+/** How many labels fit in one cell of the month grid as it is drawn now. */
+function useMarksPerCell(rows: number): [React.RefObject<HTMLDivElement | null>, number] {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [fit, setFit] = useState(MIN_MARKS)
+  useEffect(() => {
+    const grid = ref.current
+    if (!grid) return
+    const measure = (): void => {
+      const cell = (grid.clientHeight - (rows - 1) * MONTH_GAP_PX) / rows
+      setFit(Math.max(MIN_MARKS, Math.floor((cell - CELL_TOP_PX + 2) / MARK_LINE_PX)))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(grid)
+    return () => observer.disconnect()
+  }, [rows])
+  return [ref, fit]
+}
 
 interface Month {
   readonly y: number
@@ -20,25 +43,43 @@ const shift = ({ y, m }: Month, by: number): Month => {
   return { y: d.getFullYear(), m: d.getMonth() + 1 }
 }
 
-function Marks({ marks }: { marks: DayMarks | undefined }): React.JSX.Element | null {
+/**
+ * What the person planned or finished that day as labels, and agent work as one quiet count at
+ * the bottom; the folder names are in its tooltip and in the day panel.
+ */
+function Marks({ marks, fit }: { marks: DayMarks | undefined; fit: number }): React.JSX.Element | null {
   if (!marks) return null
   const all = [
     ...marks.dues.map((t) => ({ kind: 'due', text: t })),
     ...marks.schedules.map((t) => ({ kind: 'sched', text: t })),
     ...(marks.done ? [{ kind: 'done', text: `${marks.done} 件` }] : []),
   ]
-  if (all.length === 0) return null
-  // When something is left over, "+N" takes the last place so the cell never grows.
-  const shown = all.length > MARKS_PER_CELL ? all.slice(0, MARKS_PER_CELL - 1) : all
+  const projects = marks.projects.length
+  // The agent line takes one place; when labels are left over, "+N" takes the last one, so the cell never grows.
+  const room = Math.max(1, fit - (projects > 0 ? 1 : 0))
+  const shown = all.length > room ? all.slice(0, room - 1) : all
   return (
-    <span className="marks">
-      {shown.map((m, i) => (
-        <span key={i} className={`mark ${m.kind}`}>
-          {m.text}
+    <>
+      {all.length > 0 && (
+        <span className="marks">
+          {shown.map((m, i) => (
+            <span key={i} className={`mark ${m.kind}`} title={m.text}>
+              {m.text}
+            </span>
+          ))}
+          {all.length > shown.length && (
+            <span className="mark more" title={all.slice(shown.length).map((m) => m.text).join('\n')}>
+              +{all.length - shown.length}
+            </span>
+          )}
         </span>
-      ))}
-      {all.length > shown.length && <span className="mark more">+{all.length - shown.length}</span>}
-    </span>
+      )}
+      {projects > 0 && (
+        <span className="agent-line" title={marks.projects.join('\n')}>
+          {projects} 個專案
+        </span>
+      )}
+    </>
   )
 }
 
@@ -50,6 +91,7 @@ export function CalendarTab({ payload }: { payload: MainPayload }): React.JSX.El
   const [marks, setMarks] = useState<Readonly<Record<string, DayMarks>>>({})
   const show = useToast()
   const cells = useMemo(() => monthGrid(month.y, month.m), [month])
+  const [gridRef, fit] = useMarksPerCell(cells.length / 7)
 
   const load = useCallback(() => {
     window.api
@@ -89,7 +131,7 @@ export function CalendarTab({ payload }: { payload: MainPayload }): React.JSX.El
             <span key={w}>{w}</span>
           ))}
         </div>
-        <div className="month" role="grid">
+        <div className="month" role="grid" ref={gridRef}>
           {cells.map((day) => {
             const classes = [
               'day',
@@ -100,18 +142,19 @@ export function CalendarTab({ payload }: { payload: MainPayload }): React.JSX.El
             return (
               <button key={day} className={classes.join(' ')} aria-pressed={day === selected} aria-label={day} onClick={() => setSelected(day)}>
                 <span className="d">{Number(day.slice(8))}</span>
-                <Marks marks={marks[day]} />
+                <Marks marks={marks[day]} fit={fit} />
               </button>
             )
           })}
         </div>
         <div className="legend" aria-hidden="true">
-          <span><i className="sched" />固定行程</span>
+          <span><i className="sched" />固定行程、每月例行</span>
           <span><i className="due" />截止</span>
           <span><i className="done" />那天做完的</span>
+          <span><i className="agent" />agent 做事的專案數（點那天看是哪些）</span>
         </div>
       </section>
-      <DayPanel day={selected} today={today} />
+      <DayPanel day={selected} today={today} dayStartHour={payload.dayStartHour} />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite'
-import type { Item, ItemKind, ItemPatch, NewItem, Priority, RoutineSchedule } from '@shared/types'
+import type { Item, ItemKind, ItemPatch, MonthlyRule, NewItem, Priority, RoutineSchedule } from '@shared/types'
 import { appendEvent } from './events'
 import { transaction } from './transaction'
 
@@ -25,6 +25,7 @@ interface ItemRow {
   notified_at: number | null
   source: string
   schedule: string | null
+  monthly: string | null
   project: string | null
 }
 
@@ -49,6 +50,7 @@ const toItem = (r: ItemRow): Item => ({
   notifiedAt: r.notified_at,
   source: r.source,
   schedule: r.schedule ? (JSON.parse(r.schedule) as RoutineSchedule) : null,
+  monthly: r.monthly ? (JSON.parse(r.monthly) as MonthlyRule) : null,
   project: r.project,
 })
 
@@ -62,6 +64,7 @@ const PATCH_COLUMNS: Record<keyof ItemPatch, string> = {
   plannedFor: 'planned_for',
   intervalDays: 'interval_days',
   schedule: 'schedule',
+  monthly: 'monthly',
   sortOrder: 'sort_order',
   kind: 'kind',
   notifiedAt: 'notified_at',
@@ -98,8 +101,8 @@ export function createItem(db: DatabaseSync, input: NewItem, now: number): Item 
       : 0
     db.prepare(
       `INSERT INTO items (id, kind, title, notes, parent_id, sort_order, priority, created_at,
-         updated_at, due_at, due_has_time, planned_for, interval_days, last_done_at, source, schedule, project)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         updated_at, due_at, due_has_time, planned_for, interval_days, last_done_at, source, schedule, monthly, project)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       input.kind,
@@ -117,6 +120,7 @@ export function createItem(db: DatabaseSync, input: NewItem, now: number): Item 
       input.lastDoneAt ?? null,
       source,
       input.schedule ? JSON.stringify(input.schedule) : null,
+      input.monthly ? JSON.stringify(input.monthly) : null,
       input.project ?? null,
     )
     if (!parentId) {
@@ -195,6 +199,7 @@ export type ItemSnapshot = readonly Readonly<ItemRow>[]
 const COLUMNS = [
   'id', 'kind', 'title', 'notes', 'parent_id', 'sort_order', 'priority', 'created_at', 'updated_at', 'due_at',
   'due_has_time', 'planned_for', 'done_at', 'dropped_at', 'postpone_count', 'interval_days', 'last_done_at', 'notified_at', 'source', 'schedule',
+  'monthly', 'project',
 ] as const satisfies readonly (keyof ItemRow)[]
 
 /** Deletes an item with its steps and returns what was removed. */

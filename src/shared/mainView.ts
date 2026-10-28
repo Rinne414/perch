@@ -39,7 +39,7 @@ function byRoutineUrgency(a: RoutineState, b: RoutineState): number {
     // Trackers: the one untouched longest first, never-done ones last.
     return (b.daysSince ?? -1) - (a.daysSince ?? -1) || a.item.title.localeCompare(b.item.title)
   }
-  if (a.isDue) return a.dueIn / a.item.intervalDays! - b.dueIn / b.item.intervalDays!
+  if (a.isDue) return a.dueIn / Math.max(1, a.cycleDays ?? 1) - b.dueIn / Math.max(1, b.cycleDays ?? 1)
   return a.dueIn - b.dueIn || a.item.title.localeCompare(b.item.title)
 }
 

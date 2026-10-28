@@ -96,3 +96,11 @@
 :is(.mw, .float) .agent-acts .folder:hover {
   color: var(--text);
 }
+
+:is(.mw, .float) .agent-acts .remove {
+  color: var(--faint);
+}
+
+:is(.mw, .float) .agent-acts .remove:hover {
+  color: var(--late);
+}

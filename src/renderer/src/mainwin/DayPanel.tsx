@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { groupTimeline, type DayView, type TimelineEntry } from '@shared/calendar'
-import { daysBetween } from '@shared/day'
+import { dayKey, daysBetween } from '@shared/day'
 import { clock, dayTitle } from '@shared/format'
+import { rhythmLabel } from '@shared/schedule'
 import type { Item } from '@shared/types'
+import { FolderButton } from '../components/AgentCard'
 import { CheckIcon, WindowIcon } from '../components/Icons'
 import { useCompleting } from '../float/rows'
 import { useAction, useToast } from '../components/Toast'
@@ -48,12 +50,13 @@ function Entry({ entry }: { entry: TimelineEntry }): React.JSX.Element {
           <WindowIcon kind="close" />
         </button>
       )}
+      {entry.cwd && <FolderButton cwd={entry.cwd} />}
     </li>
   )
 }
 
 /** Every reply of one agent in one project that day, folded into one line until opened. */
-function AgentGroup({ title, replies }: { title: string; replies: readonly TimelineEntry[] }): React.JSX.Element {
+function AgentGroup({ title, replies, cwd }: { title: string; replies: readonly TimelineEntry[]; cwd: string | null }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const first = replies[0]
   const last = replies[replies.length - 1]
@@ -70,9 +73,12 @@ function AgentGroup({ title, replies }: { title: string; replies: readonly Timel
           {!open && last.detail && <span className="last">最後：{last.detail}</span>}
         </small>
       </span>
-      <button className="chev" aria-expanded={open} aria-label={`${open ? '收起' : '展開'} ${title} 的回覆`} onClick={() => setOpen(!open)}>
-        {open ? '收起' : '展開'}
-      </button>
+      <span className="tl-acts">
+        <button className="chev" aria-expanded={open} aria-label={`${open ? '收起' : '展開'} ${title} 的回覆`} onClick={() => setOpen(!open)}>
+          {open ? '收起' : '展開'}
+        </button>
+        {cwd && <FolderButton cwd={cwd} />}
+      </span>
       {open && (
         <ol className="replies">
           {replies.map((r) => (
@@ -148,7 +154,13 @@ function DayNote({ day, initial }: { day: string; initial: string }): React.JSX.
   )
 }
 
-function LineInput({ placeholder, label, onEnter }: { placeholder: string; label: string; onEnter: (text: string) => Promise<unknown> }): React.JSX.Element {
+interface LineInputProps {
+  readonly placeholder: string
+  readonly label: string
+  readonly onEnter: (text: string) => Promise<unknown>
+}
+
+function LineInput({ placeholder, label, onEnter }: LineInputProps): React.JSX.Element {
   const [text, setText] = useState('')
   const show = useToast()
   const submit = (): void => {
@@ -169,13 +181,35 @@ function LineInput({ placeholder, label, onEnter }: { placeholder: string; label
   )
 }
 
+/** A line added on a future day: planned for that day, or due that day (a deadline with a reminder). */
+function AddOnDay({ day }: { day: string }): React.JSX.Element {
+  const [due, setDue] = useState(false)
+  return (
+    <div className="add-on-day">
+      <div className="seg" role="radiogroup" aria-label="加在這天的方式">
+        <button role="radio" aria-checked={!due} className={due ? undefined : 'on'} onClick={() => setDue(false)}>
+          排在這天
+        </button>
+        <button role="radio" aria-checked={due} className={due ? 'on' : undefined} onClick={() => setDue(true)} title="到了這天會提醒；過了沒做會標成逾期">
+          這天截止
+        </button>
+      </div>
+      <LineInput
+        label={due ? '這天截止的事' : '在這天加一件事'}
+        placeholder={due ? '例：下午5點 交報告' : '在這天加一件事…'}
+        onEnter={(t) => window.api.captureOn(t, day, due)}
+      />
+    </div>
+  )
+}
+
 function Summary({ view }: { view: DayView }): React.JSX.Element {
   const { done, routines, agentReplies, agentProjects, focusMinutes } = view.summary
   return (
     <div className="summary">
       <div className="stat"><b>{done}</b><span>完成的事</span></div>
       <div className="stat"><b>{routines}</b><span>例行</span></div>
-      <div className="stat"><b>{agentReplies}</b><span>agent 回覆{agentProjects > 0 && `（${agentProjects} 個 project）`}</span></div>
+      <div className="stat"><b>{agentReplies}</b><span>agent 回覆{agentProjects > 0 && <span className="nb">（{agentProjects} 個專案）</span>}</span></div>
       <div className="stat"><b>{focusMinutes} 分</b><span>先做 5 分鐘</span></div>
     </div>
   )
@@ -190,8 +224,20 @@ function Block({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+/** "17:00 截止" or "這天截止" on a planned item whose deadline is that day; nothing otherwise. */
+function dueNote(item: Item, day: string, dayStartHour: number): string | undefined {
+  if (item.dueAt === null || dayKey(item.dueAt, dayStartHour) !== day) return undefined
+  return item.dueHasTime ? `${clock(item.dueAt)} 截止` : '這天截止'
+}
+
+interface DayPanelProps {
+  readonly day: string
+  readonly today: string
+  readonly dayStartHour: number
+}
+
 /** One day: what happened (past, today) and what is coming (today, future). */
-export function DayPanel({ day, today }: { day: string; today: string }): React.JSX.Element {
+export function DayPanel({ day, today, dayStartHour }: DayPanelProps): React.JSX.Element {
   const [view, setView] = useState<DayView | null>(null)
   const show = useToast()
   const load = useCallback(() => {
@@ -232,7 +278,7 @@ export function DayPanel({ day, today }: { day: string; today: string }): React.
       )}
       {view.planned.length > 0 && (
         <Block label={view.relation === 'today' ? '還要做' : '排在這天'}>
-          <ul>{view.planned.map((i) => <ItemLine key={i.id} item={i} />)}</ul>
+          <ul>{view.planned.map((i) => <ItemLine key={i.id} item={i} note={dueNote(i, day, dayStartHour)} />)}</ul>
         </Block>
       )}
       {view.dues.length > 0 && (
@@ -246,7 +292,7 @@ export function DayPanel({ day, today }: { day: string; today: string }): React.
             {view.routinesDue.map((i) => (
               <li key={i.id} className="row">
                 <span className="bullet" aria-hidden="true" />
-                <span className="main"><span className="title">{i.title}</span><span className="sub">每 {i.intervalDays} 天</span></span>
+                <span className="main"><span className="title">{i.title}</span><span className="sub">{rhythmLabel(i)}</span></span>
                 <span className="end" />
               </li>
             ))}
@@ -260,7 +306,7 @@ export function DayPanel({ day, today }: { day: string; today: string }): React.
               line.kind === 'entry' ? (
                 <Entry key={line.entry.id} entry={line.entry} />
               ) : (
-                <AgentGroup key={`${line.title}@${line.replies[0].id}`} title={line.title} replies={line.replies} />
+                <AgentGroup key={`${line.title}@${line.replies[0].id}`} title={line.title} replies={line.replies} cwd={line.cwd} />
               ),
             )}
           </ul>
@@ -271,7 +317,7 @@ export function DayPanel({ day, today }: { day: string; today: string }): React.
         {lookingBack ? (
           <LineInput label="補記一筆" placeholder="補記一筆，例：下午3點 跟客戶開會" onEnter={(t) => window.api.addManualEntry(day, t)} />
         ) : (
-          <LineInput label="在這天加一件事" placeholder="在這天加一件事…" onEnter={(t) => window.api.captureOn(t, day)} />
+          <AddOnDay day={day} />
         )}
       </div>
     </aside>

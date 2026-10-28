@@ -19,6 +19,14 @@ export interface RoutineSchedule {
   readonly remindMinutes: number | null
 }
 
+/** A routine due on fixed days of every month (bills, subscriptions). */
+export interface MonthlyRule {
+  /** Days of the month, 1-31, ascending; a day a month lacks (31 in April) means its last day. */
+  readonly days: readonly number[]
+  /** How many days before each date it starts showing and reminds; 0 = on the day. */
+  readonly leadDays: number
+}
+
 export interface Item {
   readonly id: string
   readonly kind: ItemKind
@@ -49,6 +57,8 @@ export interface Item {
   readonly source: string
   /** Routines only: fixed weekly times. Such a routine has no interval and is never "due". */
   readonly schedule: RoutineSchedule | null
+  /** Routines only: due on fixed days of every month, until done. Such a routine has no interval. */
+  readonly monthly: MonthlyRule | null
   /** The folder of the agent project it belongs to (see the 專案 tab); null for most items. */
   readonly project: string | null
 }
@@ -66,6 +76,7 @@ export interface NewItem {
   readonly lastDoneAt?: number | null
   readonly source?: string
   readonly schedule?: RoutineSchedule | null
+  readonly monthly?: MonthlyRule | null
   readonly project?: string | null
 }
 
@@ -80,6 +91,7 @@ export type ItemPatch = Partial<
     | 'plannedFor'
     | 'intervalDays'
     | 'schedule'
+    | 'monthly'
     | 'sortOrder'
     | 'kind'
     | 'notifiedAt'

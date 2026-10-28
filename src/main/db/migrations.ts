@@ -110,6 +110,17 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE agent_sessions ADD COLUMN name TEXT;
   `,
+  // Routines due on fixed days of every month: JSON {"days":[5],"leadDays":0}.
+  // Agent replies keep their folder themselves from now on; older ones get it from their session,
+  // so the calendar can still open the folder after a session is taken off the list.
+  `
+  ALTER TABLE items ADD COLUMN monthly TEXT;
+  UPDATE events
+     SET data = json_set(data, '$.cwd', (SELECT s.cwd FROM agent_sessions s WHERE s.id = events.agent_session_id))
+   WHERE type = 'agent.status'
+     AND CASE WHEN json_valid(data) THEN json_extract(data, '$.cwd') IS NULL ELSE 0 END
+     AND (SELECT s.cwd FROM agent_sessions s WHERE s.id = events.agent_session_id) IS NOT NULL;
+  `,
 ]
 
 const userVersion = (db: DatabaseSync): number =>

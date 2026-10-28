@@ -1,4 +1,5 @@
 import { dayKey, daysBetween } from './day'
+import { monthlyState } from './monthly'
 import type { Item } from './types'
 
 export interface ListSettings {
@@ -45,21 +46,28 @@ export interface RoutineState {
   /** Null when the routine has never been done. */
   readonly daysSince: number | null
   /**
-   * Days until it is due again; 0 or less means due, negative is how late.
+   * Days until it is due again; 0 or less means due, negative is how late. A monthly routine
+   * with a reminder lead is due a few days early, with a positive count to its date.
    * Null for a tracker without an interval: it only remembers when it last happened.
    */
   readonly dueIn: number | null
   readonly isDue: boolean
+  /** The wanted gap: the interval, or the days between two dates of a monthly routine; null for a tracker. */
+  readonly cycleDays: number | null
+  /** Monthly routines: the date it is due for, or the next one; null otherwise. */
+  readonly dueOn: string | null
 }
 
 /** A routine that was never done counts from the day it was created. */
 export function routineState(item: Item, day: string, dayStartHour: number): RoutineState {
-  const since = daysBetween(dayKey(item.lastDoneAt ?? item.createdAt, dayStartHour), day)
-  const dueIn = item.intervalDays === null ? null : item.intervalDays - since
-  return {
-    item,
-    daysSince: item.lastDoneAt === null ? null : since,
-    dueIn,
-    isDue: dueIn !== null && dueIn <= 0,
+  const lastDone = item.lastDoneAt === null ? null : dayKey(item.lastDoneAt, dayStartHour)
+  const created = dayKey(item.createdAt, dayStartHour)
+  const since = daysBetween(lastDone ?? created, day)
+  const daysSince = lastDone === null ? null : since
+  if (item.monthly) {
+    const m = monthlyState(item.monthly, created, lastDone, day)
+    return { item, daysSince, dueIn: daysBetween(day, m.dueOn), isDue: m.isDue, cycleDays: m.cycleDays, dueOn: m.dueOn }
   }
+  const dueIn = item.intervalDays === null ? null : item.intervalDays - since
+  return { item, daysSince, dueIn, isDue: dueIn !== null && dueIn <= 0, cycleDays: item.intervalDays, dueOn: null }
 }

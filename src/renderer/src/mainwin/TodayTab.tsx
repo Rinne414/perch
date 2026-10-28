@@ -1,10 +1,12 @@
+import { Fragment, useState } from 'react'
 import { dayKey } from '@shared/day'
 import { clock, dayLabel } from '@shared/format'
 import type { MainPayload } from '@shared/ipc'
 import type { UpcomingEntry } from '@shared/mainView'
-import type { TodayEntry } from '@shared/now'
+import { routineEntry, type TodayEntry } from '@shared/now'
 import type { Item } from '@shared/types'
 import { CaptureField } from '../components/CaptureField'
+import { DueEditor } from '../components/DueEditor'
 import { FocusArea, FocusStart } from '../components/Focus'
 import { ScheduleRow } from '../components/ScheduleRow'
 import { AgentCard } from '../components/AgentCard'
@@ -54,12 +56,33 @@ function upcomingLabel(entry: UpcomingEntry, today: string, dayStartHour: number
   )
 }
 
+/** 截止日 typed right under a row, like in 隨手記. */
+function DueLine({ item, dayStartHour, onClose }: { item: Item; dayStartHour: number; onClose: () => void }): React.JSX.Element {
+  const run = useAction()
+  return (
+    <li className="inline">
+      <DueEditor
+        dayStartHour={dayStartHour}
+        onCancel={onClose}
+        onSubmit={(text) => {
+          onClose()
+          run(() => window.api.setDue(item.id, text))
+        }}
+      />
+    </li>
+  )
+}
+
 export function TodayTab({ payload, at, selected, onOpen }: Props): React.JSX.Element {
   const { view, attention, dayStartHour } = payload
   const run = useAction()
-  const dueRoutines = view.routines
-    .filter((r) => r.isDue)
-    .map((r) => ({ item: r.item, daysSince: r.daysSince, overdueBy: -(r.dueIn ?? 0) }))
+  const [dating, setDating] = useState<string | null>(null)
+  const dueButton = (item: Item): React.JSX.Element => (
+    <button className="act" aria-expanded={dating === item.id} title="設一個截止日，到時會提醒" onClick={() => setDating(dating === item.id ? null : item.id)}>
+      {item.dueAt === null ? '截止日' : '改截止'}
+    </button>
+  )
+  const dueRoutines = view.routines.filter((r) => r.isDue).map(routineEntry)
   const nothing =
     view.today.length + view.upcoming.length + attention.length + dueRoutines.length + view.schedule.length === 0
   const overdueIds = view.today.filter((e) => e.overdueDays > 0).map((e) => e.item.id)
@@ -73,7 +96,7 @@ export function TodayTab({ payload, at, selected, onOpen }: Props): React.JSX.El
         id="main-capture-today"
         target="today"
         dayStartHour={dayStartHour}
-        placeholder="記點什麼… 例：明天下午3點 交報告（沒寫日期就排今天）"
+        placeholder="記點什麼… 寫了日期就是截止日，例：週五 交報告（沒寫日期就排今天）"
       />
 
       {view.schedule.length > 0 && (
@@ -107,30 +130,33 @@ export function TodayTab({ payload, at, selected, onOpen }: Props): React.JSX.El
           </h2>
           <ul>
             {view.today.map((e) => (
-              <TaskRow
-                key={e.item.id}
-                item={e.item}
-                selected={selected === e.item.id}
-                late={e.overdueDays > 0}
-                onOpen={onOpen}
-                sub={
-                  e.overdueDays > 0 ? (
-                    <span className="late-text">逾期 {e.overdueDays} 天</span>
-                  ) : (
-                    <NextStep step={e.nextStep} count={stepCount(view.steps[e.item.id])} />
-                  )
-                }
-                end={dueToday(e, at)}
-                actions={
-                  <>
-                    {payload.focus?.itemId !== e.item.id && <FocusStart item={e.item} nextStep={e.nextStep} />}
-                    <button className="act" title="今天不做，移到明天" onClick={() => run(() => window.api.postpone(e.item.id))}>
-                      明天
-                    </button>
-                  </>
-                }
-                below={<FocusArea item={e.item} focus={payload.focus} />}
-              />
+              <Fragment key={e.item.id}>
+                <TaskRow
+                  item={e.item}
+                  selected={selected === e.item.id}
+                  late={e.overdueDays > 0}
+                  onOpen={onOpen}
+                  sub={
+                    e.overdueDays > 0 ? (
+                      <span className="late-text">逾期 {e.overdueDays} 天</span>
+                    ) : (
+                      <NextStep step={e.nextStep} count={stepCount(view.steps[e.item.id])} />
+                    )
+                  }
+                  end={dueToday(e, at)}
+                  actions={
+                    <>
+                      {payload.focus?.itemId !== e.item.id && <FocusStart item={e.item} nextStep={e.nextStep} />}
+                      <button className="act" title="今天不做，移到明天" onClick={() => run(() => window.api.postpone(e.item.id))}>
+                        明天
+                      </button>
+                      {dueButton(e.item)}
+                    </>
+                  }
+                  below={<FocusArea item={e.item} focus={payload.focus} />}
+                />
+                {dating === e.item.id && <DueLine item={e.item} dayStartHour={dayStartHour} onClose={() => setDating(null)} />}
+              </Fragment>
             ))}
           </ul>
           {overdueIds.length >= 2 && <OverdueBatch ids={overdueIds} />}
@@ -157,19 +183,24 @@ export function TodayTab({ payload, at, selected, onOpen }: Props): React.JSX.El
           </h2>
           <ul>
             {view.upcoming.map((e) => (
-              <TaskRow
-                key={e.item.id}
-                item={e.item}
-                selected={selected === e.item.id}
-                onOpen={onOpen}
-                sub={<NextStep step={e.nextStep} count={stepCount(view.steps[e.item.id])} />}
-                end={upcomingLabel(e, view.day, dayStartHour)}
-                actions={
-                  <button className="act" onClick={() => run(() => window.api.plan(e.item.id, 'today'))}>
-                    排到今天
-                  </button>
-                }
-              />
+              <Fragment key={e.item.id}>
+                <TaskRow
+                  item={e.item}
+                  selected={selected === e.item.id}
+                  onOpen={onOpen}
+                  sub={<NextStep step={e.nextStep} count={stepCount(view.steps[e.item.id])} />}
+                  end={upcomingLabel(e, view.day, dayStartHour)}
+                  actions={
+                    <>
+                      <button className="act" onClick={() => run(() => window.api.plan(e.item.id, 'today'))}>
+                        排到今天
+                      </button>
+                      {dueButton(e.item)}
+                    </>
+                  }
+                />
+                {dating === e.item.id && <DueLine item={e.item} dayStartHour={dayStartHour} onClose={() => setDating(null)} />}
+              </Fragment>
             ))}
           </ul>
         </section>

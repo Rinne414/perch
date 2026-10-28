@@ -23,6 +23,7 @@ const entry = (id: number, kind: TimelineEntry['kind'], title: string, detail: s
   title,
   detail,
   hasTime: true,
+  cwd: null,
 })
 
 describe('groupTimeline', () => {

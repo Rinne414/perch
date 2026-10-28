@@ -50,6 +50,8 @@ const api: Api = {
   removeManualEntry: invoke(CHANNELS.removeManualEntry),
   setDayNote: invoke(CHANNELS.setDayNote),
   acknowledgeAgents: invoke(CHANNELS.acknowledgeAgents),
+  removeAgent: invoke(CHANNELS.removeAgent),
+  undoRemoveAgent: invoke(CHANNELS.undoRemoveAgent),
   restoreSessions: invoke(CHANNELS.restoreSessions),
   skipRestore: invoke(CHANNELS.skipRestore),
   listRestore: invoke(CHANNELS.listRestore),

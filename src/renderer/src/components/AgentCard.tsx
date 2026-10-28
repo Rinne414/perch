@@ -5,7 +5,7 @@ import { endLabel } from '@shared/now'
 import { projectName } from '@shared/projects'
 import type { PlanTarget } from '@shared/ipc'
 import type { AgentSession } from '@shared/types'
-import { FolderIcon } from './Icons'
+import { FolderIcon, TrashIcon } from './Icons'
 import { useAction, useToast } from './Toast'
 import './agent-card.css'
 
@@ -74,6 +74,35 @@ export function FolderButton({ cwd, labelled = false }: { cwd: string; labelled?
   return (
     <button className="act icon folder" aria-label={`開資料夾：${projectName(cwd) ?? cwd}`} title={`開資料夾：${cwd}`} onClick={open}>
       <FolderIcon />
+    </button>
+  )
+}
+
+/**
+ * Takes the session off Perch's list right away, with a one-minute undo. The agent's own
+ * conversation is untouched, and the replies stay on the calendar.
+ */
+function RemoveButton({ session }: { session: AgentSession }): React.JSX.Element {
+  const show = useToast()
+  const label = sessionLabel(session)
+  const remove = (): void => {
+    const undo = (): Promise<void> =>
+      window.api.undoRemoveAgent(session.id).then((ok) => {
+        if (!ok) throw new Error('Undo window passed')
+      })
+    window.api
+      .removeAgent(session.id)
+      .then(() => show(`已從清單刪掉「${label}」`, undo))
+      .catch(() => show('沒有刪成功，再試一次看看'))
+  }
+  return (
+    <button
+      className="act icon remove"
+      aria-label={`從清單刪掉：${label}`}
+      title={'從 Perch 的清單刪掉，1 分鐘內可以復原\n不會動到 agent 的對話；日曆裡的經過會留著'}
+      onClick={remove}
+    >
+      <TrashIcon />
     </button>
   )
 }
@@ -176,6 +205,7 @@ export function AgentCard({ session, group, at, layout = 'side', cutoffAt }: Car
       </button>
       <ResumeButton session={session} />
       {session.cwd && <FolderButton cwd={session.cwd} />}
+      <RemoveButton session={session} />
     </span>
   )
   return (

@@ -37,7 +37,7 @@ export function CaptureField(props: Props): React.JSX.Element {
       </>
     ) : dateLabel ? (
       <>
-        <span className="capture-date">{dateLabel}</span> 到期 · Enter 儲存
+        <span className="capture-date">{dateLabel}</span> 截止，會提醒 · Enter 儲存
       </>
     ) : (
       hintFor(target)

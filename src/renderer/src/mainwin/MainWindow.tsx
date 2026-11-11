@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { isDecision } from '@shared/briefing'
 import { dayTitle } from '@shared/format'
 import { MAIN_TABS, type MainPayload, type MainTab } from '@shared/ipc'
 import type { Item } from '@shared/types'
 import {
   AgentIcon,
+  BriefingIcon,
   CalendarIcon,
   FolderIcon,
   NoteIcon,
@@ -14,6 +16,7 @@ import {
   WindowIcon,
 } from '../components/Icons'
 import { AgentsTab } from './AgentsTab'
+import { BriefingTab } from './BriefingTab'
 import { CalendarTab } from './CalendarTab'
 import { InboxTab } from './InboxTab'
 import { ItemDetail } from './ItemDetail'
@@ -34,6 +37,7 @@ interface TabInfo {
 }
 
 const TABS: Readonly<Record<MainTab, TabInfo>> = {
+  briefing: { label: '簡報', icon: BriefingIcon },
   today: { label: '今天', icon: TodayIcon },
   inbox: { label: '隨手記', icon: NoteIcon },
   stash: { label: '暫存', icon: StashIcon },
@@ -46,13 +50,15 @@ const TABS: Readonly<Record<MainTab, TabInfo>> = {
 
 function initialTab(): MainTab {
   const requested = new URLSearchParams(location.search).get('tab') as MainTab | null
-  return requested && MAIN_TABS.includes(requested) ? requested : 'today'
+  return requested && MAIN_TABS.includes(requested) ? requested : 'briefing'
 }
 
 function counts(payload: MainPayload | null): Partial<Record<MainTab, number>> {
   if (!payload) return {}
   const { view, attention } = payload
   return {
+    // The same sessions as 簡報's 等你決定: waiting on the person, and asking or failed.
+    briefing: attention.filter(isDecision).length,
     today: view.today.length,
     agents: attention.length,
     inbox: view.inbox.length,
@@ -122,14 +128,17 @@ function findItem(payload: MainPayload, id: string | null): Item | null {
   )
 }
 
-function Content({ tab, payload, at, selected, onOpen }: {
+function Content({ tab, payload, at, selected, onOpen, onNavigate }: {
   tab: MainTab
   payload: MainPayload
   at: number
   selected: string | null
   onOpen: (id: string) => void
+  onNavigate: (tab: MainTab) => void
 }): React.JSX.Element {
   switch (tab) {
+    case 'briefing':
+      return <BriefingTab dayStartHour={payload.dayStartHour} onNavigate={onNavigate} />
     case 'today':
       return <TodayTab payload={payload} at={at} selected={selected} onOpen={onOpen} />
     case 'inbox':
@@ -176,7 +185,7 @@ export function MainWindow(): React.JSX.Element {
 
   return (
     <ToastProvider>
-      <div className="mw">
+      <div className={tab === 'briefing' ? 'mw mw--deck' : 'mw'}>
         <Sidebar tab={tab} payload={payload} onPick={pick} />
         <div className="mw-body">
           <TitleBar />
@@ -189,6 +198,7 @@ export function MainWindow(): React.JSX.Element {
                   at={at}
                   selected={side ? selected : null}
                   onOpen={(id) => setSelected(id === selected ? null : id)}
+                  onNavigate={pick}
                 />
               ) : (
                 error && <p className="mw-empty">{error}</p>

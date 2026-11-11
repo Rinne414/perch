@@ -17,7 +17,7 @@ const DEFAULT_STATE: MainState = { bounds: { width: 1000, height: 680 }, maximiz
 
 const readState = (db: DatabaseSync): MainState => getSetting(db, KEY, DEFAULT_STATE)
 
-export function createMainWindow(db: DatabaseSync, tab: MainTab = 'today'): BrowserWindow {
+export function createMainWindow(db: DatabaseSync, tab: MainTab = 'briefing'): BrowserWindow {
   const state = readState(db)
   const win = new BrowserWindow({
     ...onScreen(state.bounds),

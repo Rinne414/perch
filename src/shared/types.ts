@@ -147,3 +147,40 @@ export interface AgentSession {
   /** When Perch last reopened it in a terminal after a restart. */
   readonly reopenedAt: number | null
 }
+
+/** One turn of an agent session: what the person asked and what the agent answered when it stopped. */
+export interface AgentTurn {
+  readonly id: number
+  /** The `AgentSession.id` it belongs to. */
+  readonly agentSessionId: string
+  readonly startedAt: number
+  /** The person's whole prompt; null when nobody typed one (session older than turns, a background notice, or a second reply). */
+  readonly prompt: string | null
+  /** When the agent last stopped in this turn; null while it has not. */
+  readonly endedAt: number | null
+  /** The agent's whole last message of the turn. A later reply never replaces it; it becomes a turn of its own. */
+  readonly reply: string | null
+  /** Length of the trimmed reply, 0 for none or blank: what the report pick compares. */
+  readonly replyLen: number
+}
+
+/** A session at a glance, for a list of sessions. */
+export interface SessionBrief {
+  readonly agentSessionId: string
+  /** The first prompt a person typed in the session. */
+  readonly firstPrompt: string | null
+  /** The latest prompt a person typed. */
+  readonly latestPrompt: string | null
+  /** The latest reply the agent gave, from whichever turn it came. */
+  readonly latestReply: string | null
+  /** When that reply was given. */
+  readonly latestReplyAt: number | null
+  /** Its report: the longest reply since the last typed prompt (see `pickReportTurn`). */
+  readonly reportReply: string | null
+  /** When that report was given. */
+  readonly reportReplyAt: number | null
+  /** How many prompts the person typed in it. */
+  readonly promptCount: number
+  /** How many turns Perch kept for it, typed or not; 0 for sessions recorded before turns existed. */
+  readonly turnCount: number
+}

@@ -31,14 +31,21 @@ const wasSeen = (s: AgentSession): boolean =>
 /** How long "已複製" stays on the button. */
 const COPIED_MS = 1500
 
+interface ResumeProps {
+  readonly session: AgentSession
+  /** What the button says before it is pressed. */
+  readonly label?: string
+  readonly className?: string
+}
+
 /** Copies the command that reopens the session, so going back is one paste away. */
-export function ResumeButton({ session }: { session: AgentSession }): React.JSX.Element | null {
+export function ResumeButton({ session, label = '回去', className = 'later resume' }: ResumeProps): React.JSX.Element | null {
   const [copied, setCopied] = useState(false)
   const command = resumeCommand(session)
   if (!command) return null
   return (
     <button
-      className="later resume"
+      className={className}
       title={`複製回到這個 session 的指令，貼到終端機就能繼續：\n${command}`}
       onClick={() => {
         window.api.copyText(command)
@@ -46,16 +53,23 @@ export function ResumeButton({ session }: { session: AgentSession }): React.JSX.
         setTimeout(() => setCopied(false), COPIED_MS)
       }}
     >
-      {copied ? '已複製' : '回去'}
+      {copied ? '已複製' : label}
     </button>
   )
+}
+
+interface FolderProps {
+  readonly cwd: string
+  readonly labelled?: boolean
+  /** The labelled button's class. */
+  readonly className?: string
 }
 
 /**
  * Opens the folder the agent worked in, in Explorer (Finder, the file manager).
  * An icon in lists; with `labelled`, a button that says 開資料夾.
  */
-export function FolderButton({ cwd, labelled = false }: { cwd: string; labelled?: boolean }): React.JSX.Element {
+export function FolderButton({ cwd, labelled = false, className = 'btn folder' }: FolderProps): React.JSX.Element {
   const show = useToast()
   const open = (): void => {
     window.api
@@ -65,7 +79,7 @@ export function FolderButton({ cwd, labelled = false }: { cwd: string; labelled?
   }
   if (labelled) {
     return (
-      <button className="btn folder" title={cwd} onClick={open}>
+      <button className={className} title={cwd} onClick={open}>
         <FolderIcon />
         開資料夾
       </button>

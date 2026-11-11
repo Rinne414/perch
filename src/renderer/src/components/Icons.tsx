@@ -51,6 +51,15 @@ export const TodayIcon = (p: IconProps): React.JSX.Element => (
   </NavIcon>
 )
 
+/** 簡報: a scope with its sweep. */
+export const BriefingIcon = (p: IconProps): React.JSX.Element => (
+  <NavIcon {...p}>
+    <circle cx="8" cy="8" r="6.2" />
+    <circle cx="8" cy="8" r="2.6" />
+    <path d="M8 8 11.6 3" />
+  </NavIcon>
+)
+
 export const NoteIcon = (p: IconProps): React.JSX.Element => (
   <NavIcon {...p}>
     <path d="M3 13l1-3.5 7-7 2.5 2.5-7 7z" />

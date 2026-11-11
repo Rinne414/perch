@@ -6,6 +6,7 @@ import { listEvents } from '../db/events'
 import { completeItem, createItem, dropItem, getItem, listOpenItems, reopenItem } from '../db/items'
 import { buildRecap } from '@shared/recap'
 import { agentSourceUsage, clearAgentData } from '../db/sources'
+import { listAllTurns } from '../db/turns'
 import {
   addStep,
   createBatchUndo,
@@ -240,5 +241,15 @@ describe('agent sources', () => {
     expect(clearAgentData(db, 'codex')).toBe(4)
     expect(agentSourceUsage(db).map((u) => u.agent)).toEqual(['claude-code'])
     expect(getItem(db, mine.id)).not.toBeNull()
+  })
+
+  test('clearing an agent removes the turns of its sessions only', () => {
+    applyAgentEvent(db, { v: 1, agent: 'codex', sessionId: 'a', status: 'running', prompt: 'codex ask', at: NOW }, NOW)
+    applyAgentEvent(db, { v: 1, agent: 'codex', sessionId: 'a', status: 'done', reply: 'codex answer', at: NOW + 1 }, NOW + 1)
+    applyAgentEvent(db, { v: 1, agent: 'claude-code', sessionId: 'b', status: 'running', prompt: 'claude ask', at: NOW }, NOW)
+
+    clearAgentData(db, 'codex')
+
+    expect(listAllTurns(db).map((t) => [t.agentSessionId, t.prompt])).toEqual([['claude-code:b', 'claude ask']])
   })
 })

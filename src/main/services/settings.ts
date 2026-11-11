@@ -15,6 +15,10 @@ export interface AppSettings {
   readonly obsidianDir: string | null
   /** 暫存 that is not kept is cleared after this many days unused; null = never. */
   readonly clipRetentionDays: number | null
+  /** Where 存成 PDF writes; null = output/reports in the data folder. */
+  readonly pdfDir: string | null
+  /** With an Obsidian folder chosen, a finished session's note is written by itself. */
+  readonly autoReports: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -25,12 +29,26 @@ export const DEFAULT_SETTINGS: AppSettings = {
   glass: 'mid',
   obsidianDir: null,
   clipRetentionDays: DEFAULT_RETENTION_DAYS,
+  pdfDir: null,
+  autoReports: true,
 }
 
 const KEY = 'app'
 
 export function readSettings(db: DatabaseSync): AppSettings {
   return { ...DEFAULT_SETTINGS, ...getSetting<Partial<AppSettings>>(db, KEY, {}) }
+}
+
+/**
+ * Decides once whether finished sessions get their notes by themselves. On for a setup without an
+ * Obsidian folder (whoever chooses one from now on sees, beside it, that it happens); off for a folder
+ * chosen before this version, whose owner never agreed to prompts and replies going into a vault
+ * that may sync to a cloud. Written once, so it never flips later.
+ */
+export function settleAutoReports(db: DatabaseSync): void {
+  const stored = getSetting<Partial<AppSettings>>(db, KEY, {})
+  if (typeof stored.autoReports === 'boolean') return
+  setSetting(db, KEY, { ...stored, autoReports: !stored.obsidianDir })
 }
 
 /** Saves the given changes on top of what is stored and returns the full settings. */

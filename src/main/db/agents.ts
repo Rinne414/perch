@@ -6,6 +6,8 @@ import { promptTitle } from '@shared/prompt'
 import type { AgentSession, AgentStatus } from '@shared/types'
 import { appendEvent } from './events'
 import { transaction } from './transaction'
+import { restoreTodoMarkRows, todoMarkRowsOf, type TodoMarkRow } from './todoMarks'
+import { recordTurn, restoreTurnRows, turnRowsOf, type TurnRow } from './turns'
 
 interface SessionRow {
   id: string
@@ -65,6 +67,7 @@ export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): A
     if (prev && e.status === 'cancelled' && (prev.status === 'done' || prev.status === 'failed')) {
       // Still a report: one without `ended` means the session is open (again).
       const name = e.name ?? prev.name
+      recordTurn(db, id, e, at)
       if (endedAt === prev.endedAt && name === prev.name) return prev
       db.prepare('UPDATE agent_sessions SET ended_at = ?, name = ? WHERE id = ?').run(endedAt, name, id)
       return { ...prev, endedAt, name }
@@ -112,6 +115,7 @@ export function applyAgentEvent(db: DatabaseSync, e: AgentEvent, now: number): A
       next.acknowledgedAt,
       next.endedAt,
     )
+    recordTurn(db, id, e, at)
     if (statusChanged && (e.status === 'done' || e.status === 'failed')) {
       const where = projectName(next.cwd)
       appendEvent(db, {
@@ -139,11 +143,24 @@ export function acknowledgeAgent(db: DatabaseSync, id: string, now: number): voi
   db.prepare('UPDATE agent_sessions SET acknowledged_at = ? WHERE id = ?').run(now, id)
 }
 
+/** Puts a session's seen mark back to `before`, unless it was marked again since `markedAt`. */
+export function unacknowledgeAgent(db: DatabaseSync, id: string, markedAt: number, before: number | null): void {
+  db.prepare('UPDATE agent_sessions SET acknowledged_at = ? WHERE id = ? AND acknowledged_at = ?').run(before, id, markedAt)
+}
+
 /** Sessions that reported anything since `since`, newest first. */
 export function listAgentSessions(db: DatabaseSync, since: number): AgentSession[] {
   const rows = db
     .prepare('SELECT * FROM agent_sessions WHERE updated_at >= ? ORDER BY updated_at DESC')
     .all(since) as unknown as SessionRow[]
+  return rows.map(toSession)
+}
+
+/** Sessions never reported closed that last reported before `before`, newest first. */
+export function listUnclosedBefore(db: DatabaseSync, before: number): AgentSession[] {
+  const rows = db
+    .prepare('SELECT * FROM agent_sessions WHERE ended_at IS NULL AND updated_at < ? ORDER BY updated_at DESC')
+    .all(before) as unknown as SessionRow[]
   return rows.map(toSession)
 }
 
@@ -261,8 +278,12 @@ export function markSessionsReopened(db: DatabaseSync, ids: readonly string[], a
   })
 }
 
-/** A session's raw row, so taking it off the list can be undone exactly. */
-export type SessionSnapshot = Readonly<SessionRow>
+/** A session's raw row, its turns and its ticked points, so taking it off the list can be undone exactly. */
+export interface SessionSnapshot {
+  readonly row: Readonly<SessionRow>
+  readonly turns: readonly TurnRow[]
+  readonly todoMarks: readonly TodoMarkRow[]
+}
 
 const SESSION_COLUMNS = [
   'id', 'agent', 'session_id', 'cwd', 'name', 'title', 'status', 'detail', 'started_at', 'updated_at',
@@ -270,21 +291,30 @@ const SESSION_COLUMNS = [
 ] as const satisfies readonly (keyof SessionRow)[]
 
 /**
- * Takes a session off Perch's list and returns what was removed. Its replies stay on the
- * calendar; the agent's own conversation files are never touched.
+ * Takes a session off Perch's list and returns what was removed, its turns and ticks included
+ * (they are deleted with it). Its replies stay on the calendar; the agent's own conversation files are never touched.
  */
 export function takeAgentSession(db: DatabaseSync, id: string): SessionSnapshot {
   return transaction(db, () => {
     const row = db.prepare('SELECT * FROM agent_sessions WHERE id = ?').get(id) as SessionRow | undefined
     if (!row) throw new Error(`Session not found: ${id}`)
+    const turns = turnRowsOf(db, id)
+    const todoMarks = todoMarkRowsOf(db, id)
     db.prepare('DELETE FROM agent_sessions WHERE id = ?').run(id)
-    return row
+    return { row, turns, todoMarks }
   })
 }
 
-/** Puts back a row from takeAgentSession; a session that reported again meanwhile keeps its newer row. */
-export function restoreAgentSession(db: DatabaseSync, row: SessionSnapshot): void {
-  db.prepare(
-    `INSERT OR IGNORE INTO agent_sessions (${SESSION_COLUMNS.join(', ')}) VALUES (${SESSION_COLUMNS.map(() => '?').join(', ')})`,
-  ).run(...SESSION_COLUMNS.map((c) => row[c]))
+/**
+ * Puts back what takeAgentSession returned. A session that reported again meanwhile keeps its
+ * newer row, and the turns and ticks it recorded since; the restored ones join them.
+ */
+export function restoreAgentSession(db: DatabaseSync, snapshot: SessionSnapshot): void {
+  transaction(db, () => {
+    db.prepare(
+      `INSERT OR IGNORE INTO agent_sessions (${SESSION_COLUMNS.join(', ')}) VALUES (${SESSION_COLUMNS.map(() => '?').join(', ')})`,
+    ).run(...SESSION_COLUMNS.map((c) => snapshot.row[c]))
+    restoreTurnRows(db, snapshot.turns)
+    restoreTodoMarkRows(db, snapshot.todoMarks)
+  })
 }

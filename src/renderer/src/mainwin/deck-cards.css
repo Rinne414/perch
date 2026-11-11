@@ -1,0 +1,357 @@
+/* 簡報 deck: 等你決定 cards, report points and ideas, report cards and tabs, 經過, the full record. Tokens are in deck.css. */
+
+/* 等你決定 */
+.bf-ask {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 14px 12px;
+  border: 1px solid rgba(var(--bf-wait-rgb), 0.34);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(var(--bf-wait-rgb), 0.085), rgba(var(--bf-wait-rgb), 0.03));
+}
+
+.bf-ask.bf-sel {
+  border-color: rgba(var(--bf-wait-rgb), 0.8);
+  box-shadow: 0 0 0 1px rgba(var(--bf-wait-rgb), 0.35), 0 0 22px rgba(var(--bf-wait-rgb), 0.14);
+}
+
+.bf-ask--fail {
+  border-color: rgba(var(--bf-fail-rgb), 0.4);
+  background: linear-gradient(180deg, rgba(var(--bf-fail-rgb), 0.09), rgba(var(--bf-fail-rgb), 0.03));
+}
+
+.bf-ask--fail.bf-sel {
+  border-color: rgba(var(--bf-fail-rgb), 0.85);
+  box-shadow: 0 0 0 1px rgba(var(--bf-fail-rgb), 0.35), 0 0 22px rgba(var(--bf-fail-rgb), 0.14);
+}
+
+.bf-ask-t,
+.bf-rp-t {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.bf-ask-t h3,
+.bf-rp-t h3 {
+  flex: 1;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bf-w {
+  font: 14px var(--bf-mono);
+  color: var(--bf-wait);
+  white-space: nowrap;
+}
+
+.bf-ask-q {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.bf-said {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 15px;
+  color: var(--bf-tx2);
+}
+
+.bf-said .bf-lb {
+  white-space: nowrap;
+}
+
+/* 報告裡留給你的事 and 提過、還沒做的 */
+.bf-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bf-td {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: start;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--bf-line-2);
+}
+
+.bf-td:first-child {
+  padding-top: 0;
+}
+
+.bf-td:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.bf-td--idea {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.bf-td--more {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bf-cb {
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+  padding: 0;
+  border: 1.5px solid rgba(var(--bf-ac), 0.7);
+  border-radius: 4px;
+  background: rgba(var(--bf-ac), 0.06);
+}
+
+.bf-cb:hover {
+  background: rgba(var(--bf-ac), 0.28);
+}
+
+.bf-tx {
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.bf-src {
+  grid-column: 2;
+  justify-self: start;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bf-tx3);
+  font-size: 14px;
+  text-align: left;
+}
+
+button.bf-src:hover {
+  color: var(--bf-hi);
+  text-decoration: underline;
+}
+
+.bf-td--idea .bf-src,
+.bf-td--more .bf-src {
+  grid-column: 1;
+}
+
+.bf-td > .bf-b,
+.bf-td-acts {
+  grid-row: 1 / 3;
+  grid-column: 3;
+  align-self: center;
+}
+
+.bf-td-acts {
+  display: flex;
+  gap: 4px;
+  grid-column: 2;
+}
+
+/* Report tabs */
+.bf-pn-h--tabs {
+  padding-left: 10px;
+  align-items: flex-end;
+}
+
+.bf-pn-h--tabs .bf-rule,
+.bf-pn-h--tabs .bf-hint {
+  align-self: center;
+}
+
+.bf-tabs {
+  display: flex;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.bf-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--bf-tx2);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.bf-tab b {
+  font: 600 14px var(--bf-mono);
+  color: var(--bf-tx3);
+}
+
+.bf-tab.bf-on {
+  color: #fff;
+  font-weight: 600;
+  background: linear-gradient(180deg, rgba(var(--bf-ln), 0.22), rgba(var(--bf-ln), 0.06));
+  border-color: var(--bf-line);
+  box-shadow: inset 0 2px 0 var(--bf-hi);
+}
+
+.bf-tab.bf-on b {
+  color: var(--bf-hi);
+}
+
+/* Report cards */
+.bf-rp {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 14px 13px;
+  border: 1px solid var(--bf-line-2);
+  border-radius: 8px;
+  background: rgba(4, 11, 15, 0.62);
+}
+
+.bf-rp.bf-sel {
+  border-color: rgba(var(--bf-done-rgb), 0.62);
+  background: linear-gradient(180deg, rgba(var(--bf-done-rgb), 0.075), rgba(4, 11, 15, 0.62) 46%);
+  box-shadow: 0 0 22px rgba(var(--bf-done-rgb), 0.1);
+}
+
+.bf-rp--run.bf-sel {
+  border-color: rgba(var(--bf-run-rgb), 0.62);
+  background: linear-gradient(180deg, rgba(var(--bf-run-rgb), 0.075), rgba(4, 11, 15, 0.62) 46%);
+}
+
+.bf-rp--left.bf-sel {
+  border-color: rgba(var(--bf-left-rgb), 0.7);
+  background: linear-gradient(180deg, rgba(var(--bf-left-rgb), 0.09), rgba(4, 11, 15, 0.62) 46%);
+}
+
+.bf-rp-t {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.bf-rp-t .bf-g {
+  align-self: center;
+}
+
+.bf-rp .bf-w {
+  color: var(--bf-done);
+}
+
+.bf-rp--run .bf-w {
+  color: var(--bf-run);
+}
+
+.bf-rp--left .bf-w {
+  color: var(--bf-tx3);
+}
+
+.bf-sum {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  align-items: baseline;
+  margin: 0;
+}
+
+.bf-sum dt {
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: rgba(127, 245, 232, 0.8);
+  white-space: nowrap;
+}
+
+.bf-sum dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.bf-sum dd.bf-q {
+  font-size: 15px;
+  color: var(--bf-tx2);
+}
+
+.bf-pre {
+  white-space: pre-line;
+}
+
+.bf-clamp1,
+.bf-clamp2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bf-clamp1 {
+  -webkit-line-clamp: 1;
+  min-width: 0;
+}
+
+.bf-clamp2 {
+  -webkit-line-clamp: 2;
+}
+
+.bf-dd-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.bf-pts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bf-pts li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.bf-pts li::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 10px;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: #ffdc93;
+}
+
+.bf-pts--note li::before {
+  border-radius: 50%;
+  background: var(--bf-tx3);
+}
+
+.bf-well {
+  max-height: 420px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--bf-line-2);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.34);
+  font-size: 15px;
+  line-height: 1.55;
+}

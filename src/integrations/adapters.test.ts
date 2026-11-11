@@ -15,6 +15,7 @@ describe('claude-code', () => {
       at: NOW,
       cwd: 'L:\\code\\app',
       title: '修好登入頁',
+      prompt: '修好登入頁\n細節…',
     })
   })
 
@@ -129,6 +130,74 @@ describe('input hygiene', () => {
   test('firstLine trims and shortens long text', () => {
     expect(firstLine('  \n  hello  \nworld')).toBe('hello')
     expect(firstLine('x'.repeat(200))).toHaveLength(160)
+  })
+})
+
+describe('whole prompts and replies', () => {
+  const long = '第一行\n\n第二行，比一百六十個字還長：' + '字'.repeat(300)
+
+  test.each([
+    ['claude-code', { session_id: 's', hook_event_name: 'UserPromptSubmit', prompt: long }, { hook_event_name: 'Stop', last_assistant_message: long }],
+    ['codex', { session_id: 's', hook_event_name: 'UserPromptSubmit', prompt: long }, { hook_event_name: 'Stop', last_assistant_message: long }],
+    ['gemini-cli', { session_id: 's', hook_event_name: 'BeforeAgent', prompt: long }, { hook_event_name: 'AfterAgent', prompt_response: long }],
+    [
+      'grok-build',
+      { sessionId: 's', hook_event_name: 'UserPromptSubmit', prompt: long },
+      { sessionId: 's', hook_event_name: 'Stop', reason: 'end_turn', lastAssistantMessage: long },
+    ],
+    [
+      'antigravity',
+      { conversationId: 's', hook_event_name: 'PreInvocation', invocationNum: 0, prompt: long },
+      { conversationId: 's', hook_event_name: 'Stop', terminationReason: 'NO_TOOL_CALL', last_reply: long },
+    ],
+  ] as const)('%s: the prompt goes out whole on a turn start and the reply whole on a turn end', (agent, start, end) => {
+    const started = hookPayloadToEvent(agent, { session_id: 's', ...start }, NOW)
+    const ended = hookPayloadToEvent(agent, { session_id: 's', ...end }, NOW)
+
+    expect(started).toMatchObject({ status: 'running', prompt: long.trim(), title: '第一行' })
+    expect(started).not.toHaveProperty('reply')
+    expect(ended).toMatchObject({ status: 'done', reply: long.trim(), detail: '第一行' })
+    expect(ended).not.toHaveProperty('prompt')
+  })
+
+  test('title and detail stay one short line', () => {
+    const e = hookPayloadToEvent('claude-code', { session_id: 's', hook_event_name: 'Stop', last_assistant_message: '字'.repeat(300) }, NOW)
+
+    expect(e?.detail).toHaveLength(160)
+    expect(e?.reply).toHaveLength(300)
+  })
+
+  test('a prompt nobody typed starts no turn, and its title is what it was', () => {
+    const base = { session_id: 's', hook_event_name: 'UserPromptSubmit' }
+    const notice = hookPayloadToEvent('claude-code', { ...base, prompt: '<task-notification>\n<summary>done</summary>\n</task-notification>' }, NOW)
+    const other = hookPayloadToEvent('claude-code', { ...base, prompt: 'Another Claude session sent a message: hi' }, NOW)
+    const pasted = hookPayloadToEvent('claude-code', { ...base, prompt: '<pasted_content id="a1">\n長文\n</pasted_content>\n幫我看' }, NOW)
+
+    expect(notice).not.toHaveProperty('prompt')
+    expect(notice?.title).toBe('（背景工作通知）')
+    expect(other).not.toHaveProperty('prompt')
+    expect(pasted).toMatchObject({ prompt: '長文\n\n幫我看', title: '幫我看' })
+  })
+
+  test('an empty reply sends no reply', () => {
+    const e = hookPayloadToEvent('claude-code', { session_id: 's', hook_event_name: 'Stop', last_assistant_message: '  \n' }, NOW)
+
+    expect(e).not.toHaveProperty('reply')
+  })
+
+  test('an interrupted or failed turn carries no reply', () => {
+    expect(hookPayloadToEvent('grok-build', { sessionId: 's', hook_event_name: 'Stop', reason: 'max_tokens', lastAssistantMessage: 'x' }, NOW)).not.toHaveProperty('reply')
+    expect(hookPayloadToEvent('claude-code', { session_id: 's', hook_event_name: 'StopFailure', error: 'boom' }, NOW)).not.toHaveProperty('reply')
+  })
+
+  test('Antigravity keeps the reply as written, links included', () => {
+    const e = hookPayloadToEvent(
+      'antigravity',
+      { conversationId: 's', hook_event_name: 'Stop', terminationReason: 'NO_TOOL_CALL', last_reply: '改了 [capture.cjs](file:///C:/x/capture.cjs)' },
+      NOW,
+    )
+
+    expect(e).toMatchObject({ detail: '改了 capture.cjs', reply: '改了 [capture.cjs](file:///C:/x/capture.cjs)' })
   })
 })
 

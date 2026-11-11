@@ -7,12 +7,15 @@ import { clock, dayTitle, monthDay } from '@shared/format'
 import { bucketOf, firstDayOf, isTopLevelWork, type ListSettings } from '@shared/lists'
 import { rhythmLabel } from '@shared/schedule'
 import type { Clip } from '@shared/clips'
-import type { AgentSession, Item, TimelineEvent } from '@shared/types'
+import type { AgentSession, AgentTurn, Item, TimelineEvent } from '@shared/types'
 import { listAgentSessions } from '../db/agents'
+import { listAllTodoMarks, type AgentTodoMark } from '../db/todoMarks'
+import { listAllTurns } from '../db/turns'
 import { listDayNotes } from '../db/dayNotes'
 import { listEvents } from '../db/events'
 import { listAllItems } from '../db/items'
 import { listClips } from '../db/clips'
+import { listReportFiles, type ReportFile } from '../db/reportFiles'
 import { entryOf } from './calendar'
 import { clipFilePath } from './clips'
 
@@ -28,10 +31,16 @@ export interface ExportData {
   readonly items: readonly Item[]
   readonly timeline: readonly TimelineEvent[]
   readonly agentSessions: readonly AgentSession[]
+  /** What each session was asked and answered, whole; `agentSessionId` is an `agentSessions[].id`. */
+  readonly agentTurns: readonly AgentTurn[]
+  /** Points of the reports the person ticked off. */
+  readonly agentTodoMarks: readonly AgentTodoMark[]
   /** The diary: one note per day (YYYY-MM-DD), oldest first. */
   readonly dayNotes: readonly { readonly day: string; readonly text: string }[]
   /** 暫存, newest first; pictures are copied into the folder next to the files (`file` keeps its name). */
   readonly clips: readonly Clip[]
+  /** Notes and PDFs Perch wrote for sessions (存成筆記, 存成 PDF, and the automatic notes), one per session and kind. */
+  readonly reports: readonly ReportFile[]
 }
 
 export function collectExport(db: DatabaseSync, version: string, now: number): ExportData {
@@ -43,8 +52,11 @@ export function collectExport(db: DatabaseSync, version: string, now: number): E
     items: listAllItems(db),
     timeline: listEvents(db, 0, Number.MAX_SAFE_INTEGER),
     agentSessions: listAgentSessions(db, 0),
+    agentTurns: listAllTurns(db),
+    agentTodoMarks: listAllTodoMarks(db),
     dayNotes: listDayNotes(db).map(({ day, text }) => ({ day, text })),
     clips: listClips(db),
+    reports: listReportFiles(db),
   }
 }
 

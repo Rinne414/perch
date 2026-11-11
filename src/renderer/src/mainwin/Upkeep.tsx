@@ -5,6 +5,7 @@ import { clock, dayLabel } from '@shared/format'
 import type { AppInfo, UpdateStatus } from '@shared/ipc'
 import { acceleratorOf, isModifierCode, shortcutLabel } from '@shared/shortcut'
 import { useToast } from '../components/Toast'
+import { PdfFolderRow, ReportNotesRow } from './ReportRows'
 
 type ShortcutMode = { readonly kind: 'idle' } | { readonly kind: 'recording'; readonly rejected: boolean } | { readonly kind: 'taken'; readonly tried: string }
 
@@ -135,6 +136,8 @@ export function DataSection({ info, onInfo }: { info: AppInfo | null; onInfo: (n
         </div>
         <ClipRetentionRow info={info} onInfo={onInfo} />
         <ObsidianRow info={info} onInfo={onInfo} />
+        <ReportNotesRow info={info} onInfo={onInfo} />
+        <PdfFolderRow info={info} onInfo={onInfo} />
       </div>
     </section>
   )

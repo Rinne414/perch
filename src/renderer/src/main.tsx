@@ -5,6 +5,7 @@ import { CaptureView } from './capture/CaptureView'
 import { FloatView } from './float/FloatView'
 import { MainWindow } from './mainwin/MainWindow'
 import { CountdownView } from './off/CountdownView'
+import { PrintView } from './print/PrintView'
 import { RestoreView } from './restore/RestoreView'
 import './styles/glass.css'
 
@@ -14,6 +15,7 @@ const VIEWS = {
   main: MainWindow,
   off: CountdownView,
   restore: RestoreView,
+  print: PrintView,
 } as const
 
 const requested = new URLSearchParams(location.search).get('view')

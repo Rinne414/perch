@@ -1,5 +1,5 @@
 import type { AgentEvent } from '../shared/agentEvent'
-import { promptTitle } from '../shared/prompt'
+import { promptTitle, typedPrompt } from '../shared/prompt'
 import type { AgentStatus } from '../shared/types'
 import { antigravityProduct } from './antigravity'
 
@@ -29,6 +29,22 @@ const promptOf = (v: unknown): string | undefined => (typeof v === 'string' && v
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined)
 
+/** The person's own words in a prompt, whole; undefined when the prompt was a notice nobody typed. */
+const typedOf = (v: unknown): string | undefined => (typeof v === 'string' ? (typedPrompt(v) ?? undefined) : undefined)
+
+/** An agent's whole message; undefined when it is empty. */
+const wholeOf = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v : undefined)
+
+/** A turn starting: running, named by the prompt's first line, with the typed prompt whole. */
+const turnStart = (prompt: unknown): Mapped => ({ status: 'running', title: promptOf(prompt), prompt: typedOf(prompt) })
+
+/** A turn ending: done, with the reply's first line as detail and the reply whole. */
+const turnEnd = (reply: unknown, detail: string | undefined = firstLine(reply)): Mapped => ({
+  status: 'done',
+  detail,
+  reply: wholeOf(reply),
+})
+
 interface Mapped {
   /** Set when one hook serves several products (Antigravity CLI / IDE / 2.0). */
   readonly agent?: string
@@ -37,6 +53,10 @@ interface Mapped {
   readonly status: AgentStatus
   readonly title?: string
   readonly detail?: string
+  /** What the person typed, whole; only on a turn start, and only when a person typed it. */
+  readonly prompt?: string
+  /** What the agent answered, whole; only on a turn end. */
+  readonly reply?: string
   /** The agent's own name for the session. */
   readonly name?: string
   /** Only for the session closing, never for one interrupted turn. */
@@ -62,11 +82,11 @@ function claudeCode(p: Payload): Mapped | null {
 function claudeCodeStatus(p: Payload): Mapped | null {
   switch (p['hook_event_name']) {
     case 'UserPromptSubmit':
-      return { status: 'running', title: promptOf(p['prompt']) }
+      return turnStart(p['prompt'])
     case 'PostToolUse':
       return { status: 'running' }
     case 'Stop':
-      return { status: 'done', detail: firstLine(p['last_assistant_message']) }
+      return turnEnd(p['last_assistant_message'])
     case 'StopFailure':
       return { status: 'failed', detail: firstLine(p['error_details']) ?? firstLine(p['error']) ?? 'API 錯誤' }
     case 'Notification': {
@@ -84,11 +104,11 @@ function claudeCodeStatus(p: Payload): Mapped | null {
 function codex(p: Payload): Mapped | null {
   switch (p['hook_event_name']) {
     case 'UserPromptSubmit':
-      return { status: 'running', title: promptOf(p['prompt']) }
+      return turnStart(p['prompt'])
     case 'PostToolUse':
       return { status: 'running' }
     case 'Stop':
-      return { status: 'done', detail: firstLine(p['last_assistant_message']) }
+      return turnEnd(p['last_assistant_message'])
     case 'PermissionRequest': {
       const input = (p['tool_input'] ?? {}) as Payload
       const what = firstLine(input['description']) ?? firstLine(input['command'])
@@ -105,11 +125,11 @@ function codex(p: Payload): Mapped | null {
 function geminiCli(p: Payload): Mapped | null {
   switch (p['hook_event_name']) {
     case 'BeforeAgent':
-      return { status: 'running', title: promptOf(p['prompt']) }
+      return turnStart(p['prompt'])
     case 'AfterTool':
       return { status: 'running' }
     case 'AfterAgent':
-      return { status: 'done', detail: firstLine(p['prompt_response']) }
+      return turnEnd(p['prompt_response'])
     case 'Notification':
       return p['notification_type'] === 'ToolPermission'
         ? { status: 'needs_input', detail: firstLine(p['message']) }
@@ -143,7 +163,7 @@ function antigravity(p: Payload): Mapped | null {
   switch (p['hook_event_name']) {
     case 'PreInvocation':
       return p['invocationNum'] === 0 || p['invocationNum'] === undefined
-        ? { ...base, status: 'running', title: promptOf(p['prompt']) }
+        ? { ...base, ...turnStart(p['prompt']) }
         : { ...base, status: 'running' }
     case 'PostToolUse':
       return { ...base, status: 'running' }
@@ -156,7 +176,7 @@ function antigravity(p: Payload): Mapped | null {
       if (/CANCEL|INTERRUPT|ABORT/i.test(reason)) return { ...base, status: 'cancelled' }
       if (/MAX|STEP|LIMIT|BUDGET/i.test(reason)) return { ...base, status: 'failed', detail: '步數用完了' }
       if (/ERROR|FAIL/i.test(reason)) return { ...base, status: 'failed', detail: reason }
-      return { ...base, status: 'done', detail: firstLine(withoutLinks(p['last_reply'])) }
+      return { ...base, ...turnEnd(p['last_reply'], firstLine(withoutLinks(p['last_reply']))) }
     }
     default:
       return null
@@ -167,14 +187,14 @@ function grokBuild(p: Payload): Mapped | null {
   if (p['subagentType'] !== undefined) return null
   switch (p['hook_event_name']) {
     case 'UserPromptSubmit':
-      return { status: 'running', title: promptOf(p['prompt']) }
+      return turnStart(p['prompt'])
     case 'PostToolUse':
       return { status: 'running' }
     case 'Stop':
       // A second Stop ("shutdown", after SessionEnd) fires when the session closes; only "end_turn" is a finished turn.
       if (p['reason'] === 'shutdown') return SESSION_END
       if (p['reason'] !== undefined && p['reason'] !== 'end_turn') return { status: 'cancelled' }
-      return { status: 'done', detail: firstLine(p['lastAssistantMessage']) }
+      return turnEnd(p['lastAssistantMessage'])
     case 'StopFailure':
       return { status: 'failed', detail: firstLine(p['errorDetails']) ?? firstLine(p['error']) ?? 'API 錯誤' }
     case 'StopCancelled':
@@ -219,6 +239,8 @@ export function hookPayloadToEvent(agent: HookAgent, payload: unknown, now: numb
     ...(mapped.title ? { title: mapped.title } : {}),
     ...(mapped.name ? { name: mapped.name } : {}),
     ...(mapped.detail ? { detail: mapped.detail } : {}),
+    ...(mapped.prompt ? { prompt: mapped.prompt } : {}),
+    ...(mapped.reply ? { reply: mapped.reply } : {}),
     ...(mapped.ended ? { ended: true } : {}),
   }
 }

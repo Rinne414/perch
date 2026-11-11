@@ -12,7 +12,7 @@ export interface SessionTrash {
 
 /** Taking agent sessions off the list, with the same one-minute undo as deleting a task. Kept in memory only. */
 export function createSessionTrash(clock: () => number = Date.now): SessionTrash {
-  const kept = new Map<string, { readonly row: SessionSnapshot; readonly at: number }>()
+  const kept = new Map<string, { readonly snapshot: SessionSnapshot; readonly at: number }>()
   const prune = (): void => {
     const cutoff = clock() - UNDO_MS
     for (const [id, entry] of kept) if (entry.at < cutoff) kept.delete(id)
@@ -20,14 +20,14 @@ export function createSessionTrash(clock: () => number = Date.now): SessionTrash
   return {
     remove(db, id) {
       prune()
-      kept.set(id, { row: takeAgentSession(db, id), at: clock() })
+      kept.set(id, { snapshot: takeAgentSession(db, id), at: clock() })
     },
     restore(db, id) {
       prune()
       const entry = kept.get(id)
       if (!entry) return false
       kept.delete(id)
-      restoreAgentSession(db, entry.row)
+      restoreAgentSession(db, entry.snapshot)
       return true
     },
   }

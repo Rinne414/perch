@@ -2,6 +2,8 @@ import type { DatabaseSync } from 'node:sqlite'
 import { beforeEach, describe, expect, test } from 'vitest'
 import { applyAgentEvent, getAgentSession, isKnownWorkFolder } from '../db/agents'
 import { openDatabase } from '../db/connection'
+import { listAllTodoMarks, markTodo } from '../db/todoMarks'
+import { listAllTurns, listTurns } from '../db/turns'
 import { dayView } from './calendar'
 import { DEFAULT_SETTINGS } from './settings'
 import { createSessionTrash } from './sessionTrash'
@@ -55,6 +57,52 @@ describe('createSessionTrash', () => {
     expect(view.timeline.map((e) => [e.kind, e.title, e.cwd])).toEqual([['agent', 'Claude Code · shop', CWD]])
     expect(isKnownWorkFolder(db, CWD)).toBe(true)
     expect(isKnownWorkFolder(db, 'C:\\Windows')).toBe(false)
+  })
+
+  test('its turns go with it and come back on undo', () => {
+    applyAgentEvent(db, { v: 1, agent: 'claude-code', sessionId: 's1', status: 'running', prompt: '修 bug', at: at(10, 6) }, at(10, 6))
+    applyAgentEvent(db, { v: 1, agent: 'claude-code', sessionId: 's1', status: 'done', reply: '修好了，測試都過', at: at(10, 9) }, at(10, 9))
+    const turns = listTurns(db, 'claude-code:s1')
+    expect(turns).toHaveLength(1)
+    const trash = createSessionTrash(() => at(11))
+
+    trash.remove(db, 'claude-code:s1')
+    expect(listAllTurns(db)).toEqual([])
+
+    expect(trash.restore(db, 'claude-code:s1')).toBe(true)
+    expect(listTurns(db, 'claude-code:s1')).toEqual(turns)
+  })
+
+  test('its ticked report points go with it and come back on undo', () => {
+    markTodo(db, 'claude-code:s1', '1a2b3c4d', at(10, 30))
+    const trash = createSessionTrash(() => at(11))
+
+    trash.remove(db, 'claude-code:s1')
+    expect(listAllTodoMarks(db)).toEqual([])
+
+    expect(trash.restore(db, 'claude-code:s1')).toBe(true)
+    expect(listAllTodoMarks(db)).toEqual([{ agentSessionId: 'claude-code:s1', key: '1a2b3c4d', markedAt: at(10, 30) }])
+  })
+
+  test('after the undo window the turns are gone too', () => {
+    applyAgentEvent(db, { v: 1, agent: 'claude-code', sessionId: 's1', status: 'done', reply: '好了', at: at(10, 9) }, at(10, 9))
+    let now = at(11)
+    const trash = createSessionTrash(() => now)
+    trash.remove(db, 'claude-code:s1')
+    now += 61_000
+
+    expect(trash.restore(db, 'claude-code:s1')).toBe(false)
+    expect(listAllTurns(db)).toEqual([])
+  })
+
+  test('a session that reported again meanwhile keeps its new turns, and the old ones join them', () => {
+    applyAgentEvent(db, { v: 1, agent: 'claude-code', sessionId: 's1', status: 'running', prompt: '舊的提問', at: at(10, 6) }, at(10, 6))
+    const trash = createSessionTrash(() => at(11))
+    trash.remove(db, 'claude-code:s1')
+    applyAgentEvent(db, { v: 1, agent: 'claude-code', sessionId: 's1', status: 'running', prompt: '新的提問', at: at(11, 1) }, at(11, 1))
+
+    expect(trash.restore(db, 'claude-code:s1')).toBe(true)
+    expect(listTurns(db, 'claude-code:s1').map((t) => t.prompt)).toEqual(['舊的提問', '新的提問'])
   })
 
   test('removing a session that is not there fails', () => {

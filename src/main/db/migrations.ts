@@ -4,7 +4,10 @@ import type { DatabaseSync } from 'node:sqlite'
  * Append-only list. Each entry runs once, in order, tracked by PRAGMA user_version.
  * Never edit a shipped migration; add a new one instead.
  */
-const MIGRATIONS: readonly string[] = [
+/** SQL to run, or code for a step SQL alone cannot do (one that has to be safe to run twice). */
+type Migration = string | ((db: DatabaseSync) => void)
+
+const MIGRATIONS: readonly Migration[] = [
   `
   CREATE TABLE items (
     id TEXT PRIMARY KEY,
@@ -121,7 +124,63 @@ const MIGRATIONS: readonly string[] = [
      AND CASE WHEN json_valid(data) THEN json_extract(data, '$.cwd') IS NULL ELSE 0 END
      AND (SELECT s.cwd FROM agent_sessions s WHERE s.id = events.agent_session_id) IS NOT NULL;
   `,
+  // What each turn of an agent session asked and answered, whole. prompt is null when nobody typed
+  // one (the session began before this table, or the turn was a background notice); reply and
+  // ended_at stay null until the agent stops. IF NOT EXISTS: the older migration tests build their
+  // "old" databases from the current schema and replay everything after the version they set.
+  `
+  CREATE TABLE IF NOT EXISTS agent_turns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE CASCADE,
+    started_at INTEGER NOT NULL,
+    prompt TEXT,
+    ended_at INTEGER,
+    reply TEXT
+  );
+  CREATE INDEX IF NOT EXISTS agent_turns_session ON agent_turns (agent_session_id, started_at);
+  CREATE INDEX IF NOT EXISTS agent_turns_ended ON agent_turns (ended_at);
+  `,
+  // 11
+  // Points of a session's report the person ticked off in 報告裡留給你的事. key is a hash of the
+  // report's time and the point's text (shared/todos.ts todoKey), so the same report read again keeps
+  // its ticks and a later report starts fresh; the marks go with the session.
+  `
+  CREATE TABLE IF NOT EXISTS agent_todo_marks (
+    agent_session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE CASCADE,
+    key TEXT NOT NULL,
+    marked_at INTEGER NOT NULL,
+    PRIMARY KEY (agent_session_id, key)
+  );
+  `,
+  // 12
+  addReplyLength,
 ]
+
+/**
+ * Migration 12: agent_turns.reply_len, the length of the trimmed reply (0 for none or blank), so the
+ * report pick compares lengths without reading any reply; a covering index the pick reads from; and
+ * one the time track reads from, so neither walks past a long prompt or reply to reach a time.
+ * The backfill trims in JavaScript, as recordTurn does. Safe to run on a table that has the column
+ * (the older migration tests build their "old" databases from the current schema).
+ */
+function addReplyLength(db: DatabaseSync): void {
+  const columns = (db.prepare('PRAGMA table_info(agent_turns)').all() as { name: string }[]).map((c) => c.name)
+  if (!columns.includes('reply_len')) db.exec('ALTER TABLE agent_turns ADD COLUMN reply_len INTEGER NOT NULL DEFAULT 0')
+  const update = db.prepare('UPDATE agent_turns SET reply_len = ? WHERE id = ?')
+  // A page at a time, each read finished before its updates, so no update runs under an open read.
+  const page = db.prepare('SELECT id, reply FROM agent_turns WHERE reply IS NOT NULL AND id > ? ORDER BY id LIMIT 200')
+  for (let after = 0; ; ) {
+    const rows = page.all(after) as unknown as { id: number; reply: string }[]
+    if (rows.length === 0) break
+    for (const r of rows) update.run(r.reply.trim().length, r.id)
+    after = Number(rows[rows.length - 1].id)
+  }
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS agent_turns_shape ON agent_turns
+       (agent_session_id, started_at, id, reply_len, ended_at, prompt IS NOT NULL, reply IS NOT NULL);
+     CREATE INDEX IF NOT EXISTS agent_turns_span ON agent_turns (ended_at, started_at, agent_session_id)`,
+  )
+}
 
 const userVersion = (db: DatabaseSync): number =>
   (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
@@ -136,7 +195,9 @@ export function migrate(db: DatabaseSync): void {
   for (let v = userVersion(db); v < MIGRATIONS.length; v++) {
     db.exec('BEGIN')
     try {
-      db.exec(MIGRATIONS[v])
+      const step = MIGRATIONS[v]
+      if (typeof step === 'string') db.exec(step)
+      else step(db)
       db.exec(`PRAGMA user_version = ${v + 1}`)
       db.exec('COMMIT')
     } catch (err) {

@@ -20,6 +20,7 @@ import { RESTORE_ARG, RESTORE_SUPPORTED, startRestore } from './restore'
 import { startScheduler } from './scheduler'
 import { startDailyBackups, writeBackup } from './services/backup'
 import { createObsidianSync } from './services/obsidian'
+import { settleAutoReports } from './services/settings'
 import { createTray, setTrayShutdown, type TrayActions } from './tray'
 import { createCaptureWindow, toggleCapture } from './windows/capture'
 import { createFloatWindow, readFloatState, saveFloatPinned } from './windows/float'
@@ -132,6 +133,8 @@ function start(): void {
   const database = openDatabase(join(dataDir(), 'tasks.db'), backupBeforeUpgrade)
   db = database
   stopBackups = startDailyBackups(database, backupsDir(), log)
+  // Before anything reads it: whether finished sessions get notes by themselves is decided once.
+  settleAutoReports(database)
   const settings = settingsReader(database)
   seedIfRequested(database, settings().dayStartHour)
 

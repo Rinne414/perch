@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, clipboard, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import { mkdirSync, statSync } from 'node:fs'
 import { release } from 'node:os'
 import { basename } from 'node:path'
@@ -25,10 +25,8 @@ import {
 } from '@shared/ipc'
 import type { AppContext } from './context'
 import { registerClipHandlers } from './ipcClips'
-import { acknowledgeAgent } from './db/agents'
 import { completeItem, dropItem, reopenItem } from './db/items'
 import { clearAgentData } from './db/sources'
-import { transaction } from './db/transaction'
 import { canOpenAtLogin, isOpenAtLogin, setOpenAtLogin } from './loginItem'
 import { readQuota } from '../integrations/quota'
 import { backupsDir, clipsDir, dataDir } from './paths'
@@ -60,6 +58,14 @@ import { recordRoutine, removeRoutineRecord, routineHistory } from './services/r
 import { updateSettings } from './services/settings'
 import { restoreSummary, sessionCutoff } from './restore'
 import { createSessionTrash } from './services/sessionTrash'
+import { createAckUndo } from './services/ackUndo'
+import { pickFolder, type FolderPick } from './pickFolder'
+import { sessionKey, sessionKeys } from './ipcArgs'
+import { registerReportHandlers } from './ipcReports'
+import { defaultReportsFolder, notesFolder } from './services/reports'
+import { getBriefingPayload } from './services/briefing'
+import { listTurns } from './db/turns'
+import { currentAway } from './awayWatch'
 
 const MAX_ID = 128
 const MAX_TEXT = 2000
@@ -140,6 +146,7 @@ function registerItemHandlers(ctx: AppContext, focus: Focus): void {
   const { db } = ctx
   const trash = createTrash()
   const sessionTrash = createSessionTrash()
+  const seenMarks = createAckUndo()
   const batches = createBatchUndo()
   const handle = <A extends unknown[]>(channel: string, fn: (...args: A) => unknown): void => {
     ipcMain.handle(channel, mutating(ctx, fn))
@@ -213,14 +220,12 @@ function registerItemHandlers(ctx: AppContext, focus: Focus): void {
     setDayNote(db, day(d), t, Date.now())
     ctx.syncObsidian(day(d))
   })
-  handle(CHANNELS.acknowledgeAgents, (list: unknown) => {
-    const now = Date.now()
-    transaction(db, () => ids(list).forEach((i) => acknowledgeAgent(db, i, now)))
-  })
-  handle(CHANNELS.removeAgent, (i: unknown) => sessionTrash.remove(db, id(i)))
-  handle(CHANNELS.undoRemoveAgent, (i: unknown) => sessionTrash.restore(db, id(i)))
+  handle(CHANNELS.acknowledgeAgents, (list: unknown) => seenMarks.acknowledge(db, sessionKeys(list), Date.now()))
+  handle(CHANNELS.undoAcknowledge, (token: unknown) => seenMarks.restore(db, text(token)))
+  handle(CHANNELS.removeAgent, (i: unknown) => sessionTrash.remove(db, sessionKey(i)))
+  handle(CHANNELS.undoRemoveAgent, (i: unknown) => sessionTrash.restore(db, sessionKey(i)))
   handle(CHANNELS.noteFromAgent, (sessionId: unknown, t: unknown, plan: unknown) =>
-    noteFromSession(db, text(sessionId), text(t), oneOf<PlanTarget>(PLANS, plan, 'plan'), Date.now(), ctx.settings().dayStartHour),
+    noteFromSession(db, sessionKey(sessionId), text(t), oneOf<PlanTarget>(PLANS, plan, 'plan'), Date.now(), ctx.settings().dayStartHour),
   )
   ipcMain.handle(CHANNELS.openProjectFolder, async (_e, cwd: unknown) => {
     const folder = projectFolder(db, cwd)
@@ -263,6 +268,10 @@ const appInfoOf = (ctx: AppContext): AppInfo => ({
   lastBackupAt: listBackups(backupsDir())[0]?.at ?? null,
   obsidianDir: ctx.settings().obsidianDir,
   clipRetentionDays: ctx.settings().clipRetentionDays,
+  notesDir: notesFolder(ctx.settings().obsidianDir, dataDir()),
+  pdfDir: ctx.settings().pdfDir ?? defaultReportsFolder(dataDir()),
+  pdfDirIsDefault: ctx.settings().pdfDir === null,
+  autoReports: ctx.settings().autoReports,
 })
 
 function registerAppHandlers(ctx: AppContext): void {
@@ -286,28 +295,6 @@ function registerAppHandlers(ctx: AppContext): void {
     return appInfo()
   })
   ipcMain.on(CHANNELS.copyText, (_e, t: unknown) => clipboard.writeText(text(t)))
-}
-
-interface FolderPick {
-  readonly title: string
-  readonly buttonLabel: string
-  /** Development runs take the folder from this variable, so tests need no dialog. */
-  readonly devEnv: string
-}
-
-/** A folder picker; `picked` is false when a development run took the folder from its variable. */
-async function pickFolder(win: BrowserWindow | null, pick: FolderPick): Promise<{ folder: string; picked: boolean } | null> {
-  const devDir = app.isPackaged ? undefined : process.env[pick.devEnv]
-  if (devDir) return { folder: devDir, picked: false }
-  const options: Electron.OpenDialogOptions = {
-    title: pick.title,
-    defaultPath: app.getPath('documents'),
-    buttonLabel: pick.buttonLabel,
-    properties: ['openDirectory', 'createDirectory'],
-  }
-  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
-  const folder = result.canceled ? undefined : result.filePaths[0]
-  return folder ? { folder, picked: true } : null
 }
 
 const EXPORT_PICK: FolderPick = { title: '匯出到哪個資料夾？', buttonLabel: '匯出到這裡', devEnv: 'TC_EXPORT_DIR' }
@@ -384,10 +371,16 @@ export function registerIpc(ctx: AppContext): void {
       cutoffAt: sessionCutoff(),
       restore: restoreSummary(ctx),
     }))
+  ipcMain.handle(CHANNELS.getBriefing, () => {
+    const now = Date.now()
+    return getBriefingPayload(db, now, ctx.settings(), sessionCutoff(), currentAway(db, now), ctx.log)
+  })
+  ipcMain.handle(CHANNELS.getSessionTurns, (_e, i: unknown) => listTurns(db, sessionKey(i)))
   registerItemHandlers(ctx, focus)
   registerIntegrationHandlers(ctx)
   registerAppHandlers(ctx)
   registerUpkeepHandlers(ctx)
   registerClipHandlers(ctx, () => appInfoOf(ctx))
+  registerReportHandlers(ctx, () => appInfoOf(ctx))
   registerWindowHandlers(ctx)
 }

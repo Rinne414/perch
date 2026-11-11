@@ -1,0 +1,352 @@
+/* 簡報 deck: buttons, small parts, the hero strip and quick capture. Tokens are in deck.css. */
+
+/* Buttons and small parts */
+.bf-b {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 6px;
+  border: 1px solid rgba(var(--bf-ac), 0.46);
+  background: rgba(var(--bf-ac), 0.09);
+  color: var(--bf-tx);
+  font-size: 15px;
+  white-space: nowrap;
+  transition: background-color var(--fast), border-color var(--fast);
+}
+
+.bf-b:hover {
+  background: rgba(var(--bf-ac), 0.2);
+  border-color: rgba(var(--bf-ac), 0.8);
+}
+
+.bf-b:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.bf-b--pri {
+  border: 0;
+  background: linear-gradient(180deg, #63efdf, #2fc4b4);
+  color: var(--bf-ink);
+  font-weight: 700;
+  box-shadow: 0 0 18px rgba(var(--bf-ac), 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.bf-b--pri:hover {
+  background: linear-gradient(180deg, #7ff5e8, #39d0c0);
+}
+
+.bf-b--sm {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+.bf-b--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--bf-tx2);
+}
+
+.bf :focus-visible {
+  outline: 2px solid var(--bf-hi);
+  outline-offset: 2px;
+}
+
+.bf-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.bf-push {
+  margin-left: auto;
+}
+
+.bf-grow {
+  flex: 1 1 240px;
+}
+
+.bf-push-down {
+  margin-top: auto;
+}
+
+.bf-self-start {
+  align-self: flex-start;
+}
+
+.bf-lb {
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: var(--bf-tx3);
+}
+
+.bf-mono {
+  font-family: var(--bf-mono);
+}
+
+.bf-meta,
+.bf-note {
+  font-size: 14px;
+  color: var(--bf-tx3);
+}
+
+.bf-note {
+  font-size: 15px;
+}
+
+.bf-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.bf-tag--wait {
+  background: rgba(var(--bf-wait-rgb), 0.16);
+  color: var(--bf-wait);
+  box-shadow: inset 0 0 0 1px rgba(var(--bf-wait-rgb), 0.4);
+}
+
+.bf-tag--fail {
+  background: rgba(var(--bf-fail-rgb), 0.16);
+  color: var(--bf-fail);
+  box-shadow: inset 0 0 0 1px rgba(var(--bf-fail-rgb), 0.45);
+}
+
+.bf-tag--done {
+  background: rgba(var(--bf-done-rgb), 0.13);
+  color: var(--bf-done);
+  box-shadow: inset 0 0 0 1px rgba(var(--bf-done-rgb), 0.36);
+}
+
+.bf-tag--warn {
+  background: rgba(var(--bf-wait-rgb), 0.11);
+  color: #ffdc93;
+  box-shadow: inset 0 0 0 1px rgba(var(--bf-wait-rgb), 0.3);
+}
+
+.bf-tag--dim {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--bf-tx2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+/* A refresh that failed: a small strip at the top, the page under it is from the last good read. */
+.bf-problem {
+  --bf-ln: var(--bf-fail-rgb);
+  --bf-hi: var(--bf-fail);
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 18px;
+  border-color: rgba(var(--bf-fail-rgb), 0.5);
+}
+
+/* Quick capture under the deck */
+.bf-capture {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 2px 12px 2px 14px;
+  border: 1px solid var(--bf-line-2);
+  border-radius: 10px;
+  background: rgba(4, 11, 15, 0.6);
+}
+
+.bf-capture:focus-within {
+  border-color: var(--bf-line);
+}
+
+.bf-capture > label {
+  font-family: var(--bf-mono);
+  color: var(--bf-hi);
+}
+
+.bf-capture .capture-field {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.bf-capture .capture-field input {
+  min-height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--bf-tx);
+  font-size: 16px;
+}
+
+.bf-capture .capture-field input:focus-visible {
+  outline: none;
+}
+
+.bf-capture .capture-hint,
+.bf-keys {
+  font-size: 14px;
+  color: var(--bf-tx3);
+}
+
+.bf-keys {
+  font-family: var(--bf-mono);
+}
+
+/* Hero: how long away, what to look at first, the four counts */
+.bf-hero {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 26px;
+  padding: 10px 20px 10px 24px;
+}
+
+.bf-away .bf-big {
+  display: flex;
+  align-items: baseline;
+  font: 600 58px/1 var(--bf-num);
+  font-stretch: 84%;
+  color: #fff;
+  text-shadow: 0 0 22px rgba(var(--bf-ln), 0.6);
+  white-space: nowrap;
+}
+
+.bf-away .bf-big small {
+  margin: 0 12px 0 5px;
+  font: 600 18px var(--bf-ui);
+  color: var(--bf-tx2);
+  text-shadow: none;
+}
+
+.bf-away .bf-big span:last-child small {
+  margin-right: 0;
+}
+
+.bf-span {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  font: 14px var(--bf-mono);
+  color: var(--bf-tx3);
+  white-space: nowrap;
+}
+
+.bf-say {
+  flex: 1 1 380px;
+  min-width: 0;
+  padding-left: 26px;
+  border-left: 1px solid var(--bf-line);
+}
+
+.bf-l1 {
+  font-size: 21px;
+  line-height: 1.5;
+  color: #f4fffd;
+}
+
+.bf-l1 b {
+  font-weight: 600;
+}
+
+.bf-tone-wait b {
+  color: var(--bf-wait);
+}
+
+.bf-tone-fail b {
+  color: var(--bf-fail);
+}
+
+.bf-tone-done b {
+  color: var(--bf-done);
+}
+
+.bf-l2 {
+  margin-top: 2px;
+  font-size: 15px;
+  color: var(--bf-tx2);
+}
+
+.bf-cnt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bf-cnt button {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 10px;
+  min-width: 112px;
+  padding: 7px 14px 9px;
+  border: 1px solid rgba(var(--c), 0.34);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(var(--c), 0.1), rgba(4, 12, 16, 0.5));
+  color: inherit;
+  text-align: left;
+}
+
+.bf-cnt button:hover:not(:disabled) {
+  border-color: rgba(var(--c), 0.7);
+}
+
+.bf-cnt button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.bf-cnt button::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgb(var(--c));
+  box-shadow: 0 0 10px rgb(var(--c));
+}
+
+.bf-cnt-waiting {
+  --c: var(--bf-wait-rgb);
+}
+
+.bf-cnt-done {
+  --c: var(--bf-done-rgb);
+}
+
+.bf-cnt-running {
+  --c: var(--bf-run-rgb);
+}
+
+.bf-cnt-unattended {
+  --c: var(--bf-left-rgb);
+}
+
+.bf-cnt .bf-v {
+  font: 600 38px/1 var(--bf-num);
+  font-stretch: 84%;
+  color: #fff;
+}
+
+.bf-cnt .bf-k {
+  grid-column: 1 / 3;
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--bf-tx2);
+  white-space: nowrap;
+}
+
+.bf-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}

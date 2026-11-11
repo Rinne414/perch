@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { parseAgentEvent, parseItemMessage } from './agentEvent'
+import { parseAgentEvent, parseItemMessage, isAgentSessionKey } from './agentEvent'
 
 describe('parseAgentEvent: name', () => {
   test("keeps the agent's own name for the session, trimmed; drops an empty or non-text one", () => {
@@ -32,5 +32,21 @@ describe('parseItemMessage', () => {
 
   test('cuts a very long title', () => {
     expect(parseItemMessage({ v: 1, kind: 'item', agent: 'codex', title: 'x'.repeat(500) })?.title).toHaveLength(200)
+  })
+})
+
+describe('isAgentSessionKey', () => {
+  test('"<agent>:<session id>" with the session id as long as an event may carry', () => {
+    expect(isAgentSessionKey('claude-code:abc')).toBe(true)
+    expect(isAgentSessionKey(`codex:${'x'.repeat(500)}`)).toBe(true)
+    expect(isAgentSessionKey('claude-code:a:b')).toBe(true)
+  })
+
+  test('anything else is refused', () => {
+    expect(isAgentSessionKey(`codex:${'x'.repeat(501)}`)).toBe(false)
+    expect(isAgentSessionKey('claude-code:')).toBe(false)
+    expect(isAgentSessionKey(':abc')).toBe(false)
+    expect(isAgentSessionKey('Bad Agent:abc')).toBe(false)
+    expect(isAgentSessionKey(42)).toBe(false)
   })
 })

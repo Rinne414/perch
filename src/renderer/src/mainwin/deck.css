@@ -1,0 +1,287 @@
+/*
+ * 簡報 deck: the whole window wears it while the tab is open (.mw--deck on the window root).
+ * Every colour and font is a token here; the frame, buttons, hero and layout follow.
+ */
+.mw--deck {
+  --bf-ln: 57, 208, 192;
+  --bf-ac: 57, 208, 192;
+  --bf-hi: #7ff5e8;
+  --bf-line: rgba(var(--bf-ln), 0.36);
+  --bf-line-2: rgba(var(--bf-ln), 0.17);
+  --bf-tx: rgba(238, 253, 251, 0.97);
+  --bf-tx2: rgba(212, 236, 234, 0.78);
+  --bf-tx3: rgba(186, 216, 214, 0.66);
+  --bf-wait: #ffcf6b;
+  --bf-run: #9db8ff;
+  --bf-done: #6ee7b0;
+  --bf-fail: #ff8a8a;
+  --bf-left: #8b93a7;
+  --bf-wait-rgb: 255, 207, 107;
+  --bf-run-rgb: 157, 184, 255;
+  --bf-done-rgb: 110, 231, 176;
+  --bf-fail-rgb: 255, 138, 138;
+  --bf-left-rgb: 139, 147, 167;
+  --bf-ink: #03211e;
+  --bf-base: #03080b;
+  --bf-mono: 'Cascadia Mono', 'Cascadia Code', Consolas, monospace;
+  --bf-num: 'Bahnschrift', 'DIN Alternate', 'Roboto Condensed', 'Cascadia Mono', sans-serif;
+  --bf-ui: var(--font-ui);
+  --bf-gap: 16px;
+  /* What a reply read as Markdown takes from the deck. */
+  --md-code-bg: rgba(57, 208, 192, 0.08);
+  --md-code-thumb: rgba(57, 208, 192, 0.3);
+  --md-mark: #39d0c0;
+  --md-rule: rgba(57, 208, 192, 0.17);
+  --md-th: rgba(212, 236, 234, 0.78);
+
+  background:
+    radial-gradient(1100px 640px at 56% 40%, rgba(57, 208, 192, 0.115), transparent 64%),
+    radial-gradient(900px 560px at 0% 0%, rgba(84, 120, 255, 0.12), transparent 62%),
+    radial-gradient(800px 520px at 100% 100%, rgba(57, 208, 192, 0.07), transparent 62%),
+    radial-gradient(circle at 1px 1px, rgba(150, 255, 243, 0.085) 1px, transparent 1.7px) 0 0 / 24px 24px,
+    linear-gradient(180deg, #041016, var(--bf-base));
+  color: var(--bf-tx);
+}
+
+/* The sidebar in the same skin: same items, places and sizes; only colours and borders change. */
+.mw--deck .side {
+  background: linear-gradient(180deg, rgba(9, 22, 29, 0.9), rgba(4, 10, 14, 0.92));
+  border-right-color: var(--bf-line-2);
+}
+
+.mw--deck .brand {
+  font-family: var(--bf-mono);
+  letter-spacing: 0.03em;
+}
+
+.mw--deck .brand span,
+.mw--deck .nav,
+.mw--deck .wc {
+  color: var(--bf-tx2);
+}
+
+.mw--deck .nav {
+  position: relative;
+}
+
+.mw--deck .nav:hover,
+.mw--deck .wc:hover {
+  background: rgba(var(--bf-ac), 0.12);
+  color: var(--bf-tx);
+}
+
+.mw--deck .nav.on {
+  color: #fff;
+  background: linear-gradient(90deg, rgba(var(--bf-ac), 0.26), rgba(var(--bf-ac), 0.05));
+  box-shadow: inset 0 0 0 1px rgba(var(--bf-ac), 0.42);
+}
+
+.mw--deck .nav.on::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--bf-hi);
+  box-shadow: 0 0 10px var(--bf-hi);
+}
+
+.mw--deck .nav .n {
+  font-family: var(--bf-mono);
+  color: var(--bf-tx3);
+}
+
+.mw--deck .nav.on .n {
+  color: var(--bf-hi);
+}
+
+.mw--deck .mw-pane {
+  padding: 0 24px 20px;
+}
+
+.mw--deck .mw-pane::-webkit-scrollbar-thumb {
+  background: var(--bf-line);
+}
+
+/* Page */
+.bf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bf-gap);
+  color: var(--bf-tx);
+  font: 16px/1.55 var(--bf-ui);
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
+.bf h2,
+.bf h3,
+.bf p {
+  margin: 0;
+}
+
+.bf button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.bf-deck {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bf-gap);
+}
+
+.bf-deck[hidden] {
+  display: none;
+}
+
+.bf-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.bf-g {
+  flex: none;
+}
+
+.bf-g-wait {
+  fill: var(--bf-wait);
+}
+
+.bf-g-run {
+  fill: var(--bf-run);
+}
+
+.bf-g-done {
+  fill: var(--bf-done);
+}
+
+.bf-g-left {
+  stroke: var(--bf-left);
+}
+
+.bf-g-fail {
+  stroke: var(--bf-fail);
+}
+
+/* Layout: three columns from 2000 px, two from 1280, one below */
+.bf-grid {
+  display: grid;
+  gap: var(--bf-gap);
+}
+
+.bf-grid--three {
+  grid-template-columns: 600px minmax(0, 1fr) 680px;
+}
+
+.bf-grid--two {
+  grid-template-columns: minmax(0, 1fr) clamp(480px, 38%, 560px);
+}
+
+.bf-grid--one {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bf-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bf-gap);
+  min-width: 0;
+}
+
+/* Panel frame: corner brackets, header strip, rule and counter */
+.bf-pn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--bf-line);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(13, 31, 39, 0.88), rgba(6, 14, 19, 0.92));
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 12px 32px rgba(0, 0, 0, 0.38),
+    0 0 28px rgba(var(--bf-ln), 0.08),
+    inset 0 1px 0 rgba(180, 255, 247, 0.11);
+}
+
+.bf-pn::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 2px solid var(--bf-hi);
+  border-radius: inherit;
+  pointer-events: none;
+  mask:
+    linear-gradient(#000 0 0) 0 0 / 22px 22px no-repeat,
+    linear-gradient(#000 0 0) 100% 0 / 22px 22px no-repeat,
+    linear-gradient(#000 0 0) 0 100% / 22px 22px no-repeat,
+    linear-gradient(#000 0 0) 100% 100% / 22px 22px no-repeat;
+  filter: drop-shadow(0 0 5px rgba(var(--bf-ln), 0.9));
+}
+
+.bf-pn--wait {
+  --bf-ln: 255, 207, 107;
+  --bf-hi: #ffe2a3;
+}
+
+.bf-pn--grow {
+  flex: 1;
+}
+
+.bf-pn-h {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 16px 0 18px;
+  border-bottom: 1px solid var(--bf-line-2);
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(90deg, rgba(var(--bf-ln), 0.13), rgba(var(--bf-ln), 0) 72%);
+}
+
+.bf-pn-h h2 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #effffc;
+  white-space: nowrap;
+}
+
+.bf-rule {
+  flex: 1;
+  min-width: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--bf-line), transparent);
+}
+
+.bf-n {
+  font: 600 16px var(--bf-mono);
+  color: var(--bf-hi);
+  text-shadow: 0 0 10px rgba(var(--bf-ln), 0.6);
+}
+
+.bf-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--bf-tx3);
+}
+
+.bf-pn-b {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 16px 12px;
+  flex: 1;
+  min-width: 0;
+}

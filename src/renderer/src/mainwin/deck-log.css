@@ -1,0 +1,136 @@
+/* 簡報 deck: 經過 and the full record of one session. Tokens are in deck.css. */
+
+/* 經過 */
+.bf-log {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+}
+
+.bf-log--scroll {
+  max-height: calc(10 * 34px);
+  overflow-y: auto;
+}
+
+.bf-log li:nth-child(odd) {
+  background: rgba(var(--bf-ln), 0.045);
+  border-radius: 4px;
+}
+
+.bf-log button {
+  display: grid;
+  grid-template-columns: auto 14px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.bf-log button:hover {
+  background: rgba(var(--bf-ac), 0.12);
+}
+
+.bf-log time {
+  font: 14px var(--bf-mono);
+  color: var(--bf-hi);
+  white-space: nowrap;
+}
+
+.bf-log .bf-g {
+  align-self: center;
+}
+
+.bf-log-line {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bf-log-line b {
+  margin-right: 8px;
+  font-weight: 600;
+  color: var(--bf-tx2);
+}
+
+.bf-log-ask .bf-log-text {
+  color: var(--bf-wait);
+}
+
+/* The full record of one session */
+.bf-record-head {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 14px 18px;
+}
+
+.bf-record-head .what {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 300px;
+  min-width: 0;
+}
+
+.bf-record-head h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.bf-turns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bf-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bf-turn {
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.bf-said .who {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  font-size: 15px;
+  color: var(--bf-tx3);
+}
+
+.bf-turn .bf-said {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--bf-tx);
+}
+
+.bf-said .who .bf-mono {
+  color: var(--bf-hi);
+}
+
+.bf-said .text {
+  margin: 0;
+  white-space: pre-wrap;
+  font: 16px/1.6 var(--bf-ui);
+}
+
+.bf-said.reply .text {
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  white-space: normal;
+}

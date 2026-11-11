@@ -1,0 +1,224 @@
+/* 簡報 deck: the core of 全部的 agent, its motion and the legend. Tokens are in deck.css. */
+
+/* The core */
+.bf-core {
+  position: relative;
+  flex: none;
+}
+
+.bf-core svg {
+  display: block;
+  overflow: visible;
+}
+
+.bf-cross {
+  stroke: rgba(57, 208, 192, 0.16);
+}
+
+.bf-glow-in {
+  stop-color: rgba(255, 207, 107, 0.3);
+}
+
+.bf-glow-mid {
+  stop-color: rgba(57, 208, 192, 0.13);
+}
+
+.bf-glow-out {
+  stop-color: rgba(57, 208, 192, 0);
+}
+
+.bf-ticks-fine {
+  stroke: rgba(57, 208, 192, 0.5);
+}
+
+.bf-ticks-major {
+  stroke: rgba(127, 245, 232, 0.95);
+}
+
+.bf-port-ring {
+  stroke: rgba(57, 208, 192, 0.55);
+}
+
+.bf-arc-b {
+  stroke: rgba(127, 245, 232, 0.75);
+}
+
+.bf-arc-c {
+  stroke: rgba(57, 208, 192, 0.45);
+}
+
+.bf-seg {
+  cursor: pointer;
+  transition: opacity var(--fast);
+}
+
+.bf-seg--waiting {
+  stroke: var(--bf-wait);
+}
+
+.bf-seg--failed {
+  stroke: var(--bf-fail);
+}
+
+.bf-seg--running {
+  stroke: var(--bf-run);
+}
+
+.bf-seg--done {
+  stroke: var(--bf-done);
+}
+
+.bf-seg--unattended {
+  stroke: rgba(var(--bf-left-rgb), 0.75);
+}
+
+.bf-ring--picked .bf-seg {
+  opacity: 0.8;
+}
+
+.bf-ring--picked .bf-seg--sel,
+.bf-seg:hover {
+  opacity: 1;
+}
+
+.bf-seg--sel {
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.55));
+}
+
+.bf-seg-tick {
+  stroke: var(--bf-hi);
+  filter: drop-shadow(0 0 4px var(--bf-hi));
+}
+
+.bf-disc {
+  fill: rgba(3, 9, 12, 0.82);
+  stroke: rgba(var(--bf-ln), 0.55);
+}
+
+.bf-disc--waiting {
+  stroke: rgba(var(--bf-wait-rgb), 0.55);
+}
+
+.bf-disc--running {
+  stroke: rgba(var(--bf-run-rgb), 0.55);
+}
+
+.bf-disc--done {
+  stroke: rgba(var(--bf-done-rgb), 0.55);
+}
+
+.bf-core-n {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.bf-core-n .bf-v {
+  font: 600 calc(76px * var(--s)) / 0.9 var(--bf-num);
+  font-stretch: 84%;
+  color: var(--bf-tx);
+}
+
+.bf-core-n--waiting .bf-v {
+  color: var(--bf-wait);
+  text-shadow: 0 0 26px rgba(var(--bf-wait-rgb), 0.7);
+}
+
+.bf-core-n--running .bf-v {
+  color: var(--bf-run);
+  text-shadow: 0 0 26px rgba(var(--bf-run-rgb), 0.7);
+}
+
+.bf-core-n--done .bf-v {
+  color: var(--bf-done);
+  text-shadow: 0 0 26px rgba(var(--bf-done-rgb), 0.7);
+}
+
+.bf-core-n .bf-k {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #fff;
+}
+
+.bf-core-n .bf-s {
+  font: 14px var(--bf-mono);
+  color: var(--bf-tx3);
+}
+
+/* Motion says state only: the rings turn while something runs; dashes flow on waiting and running wires. */
+@keyframes bf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bf-flow {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+
+.bf-core--live .bf-spin-a,
+.bf-core--live .bf-spin-b,
+.bf-core--live .bf-spin-c {
+  /* The drawing is centred on 0 0 (viewBox -200 -200 400 400): turn around that point. */
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+
+.bf-core--live .bf-spin-a {
+  animation: bf-spin 140s linear infinite;
+}
+
+.bf-core--live .bf-spin-b {
+  animation: bf-spin 46s linear infinite reverse;
+}
+
+.bf-core--live .bf-spin-c {
+  animation: bf-spin 18s linear infinite;
+}
+
+.bf-flow {
+  animation: bf-flow 1.6s linear infinite;
+}
+
+.bf-flow-out {
+  animation: bf-flow 2.4s linear infinite reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-core--live .bf-spin-a,
+  .bf-core--live .bf-spin-b,
+  .bf-core--live .bf-spin-c,
+  .bf-flow,
+  .bf-flow-out {
+    animation: none;
+  }
+}
+
+.bf-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 20px;
+  font-size: 14px;
+  color: var(--bf-tx2);
+}
+
+.bf-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.bf-legend .bf-legend-note {
+  margin-left: auto;
+  color: var(--bf-tx3);
+}

@@ -5,6 +5,8 @@ import type { DatabaseSync } from 'node:sqlite'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { openDatabase } from '../db/connection'
 import { applyAgentEvent } from '../db/agents'
+import { rememberReportFile } from '../db/reportFiles'
+import { markTodo } from '../db/todoMarks'
 import { completeItem, createItem } from '../db/items'
 import { addManualEntry } from './calendar'
 import { addImageClip, addTextClip, editClip } from './clips'
@@ -45,6 +47,47 @@ describe('export', () => {
     expect(data.items.map((i) => i.title)).toEqual(expect.arrayContaining(['交報告', '找資料', '回信', '澆花']))
     expect(data.timeline.some((e) => e.type === 'manual')).toBe(true)
     expect(data.agentSessions).toHaveLength(1)
+  })
+
+  test('the JSON holds the whole prompts and replies of every turn', () => {
+    const prompt = '修好登入頁\n\n' + '細節'.repeat(400)
+    const reply = '改好了。\n\n- 登入頁\n- 測試\n' + '說明'.repeat(400)
+    applyAgentEvent(db, { v: 1, agent: 'codex', sessionId: 'c1', status: 'running', prompt }, at(9, 29, 22, 0))
+    applyAgentEvent(db, { v: 1, agent: 'codex', sessionId: 'c1', status: 'done', reply }, at(9, 29, 22, 5))
+
+    const data = collectExport(db, '0.1.0', NOW)
+    const written = JSON.parse(JSON.stringify(data)) as ExportData
+
+    expect(written.agentTurns).toEqual([
+      { id: expect.any(Number), agentSessionId: 'codex:c1', startedAt: at(9, 29, 22, 0), prompt, endedAt: at(9, 29, 22, 5), reply, replyLen: reply.trim().length },
+    ])
+    expect(written.agentSessions.map((s) => s.id)).toContain('codex:c1')
+  })
+
+  test('the JSON holds the points the person ticked off in the reports', () => {
+    applyAgentEvent(db, { v: 1, agent: 'codex', sessionId: 'c1', status: 'done', reply: '全部做完' }, NOW)
+    markTodo(db, 'codex:c1', '1a2b3c4d', NOW)
+
+    expect(collectExport(db, '0.1.0', NOW).agentTodoMarks).toEqual([{ agentSessionId: 'codex:c1', key: '1a2b3c4d', markedAt: NOW }])
+  })
+
+  test('writeExport puts the turns in the JSON file', () => {
+    applyAgentEvent(db, { v: 1, agent: 'codex', sessionId: 'c1', status: 'done', reply: '全部做完' }, NOW)
+
+    const { json } = writeExport(db, dir, '0.1.0', DEFAULT_SETTINGS, NOW)
+
+    expect((JSON.parse(readFileSync(json, 'utf8')) as ExportData).agentTurns.map((t) => t.reply)).toEqual(['全部做完'])
+  })
+
+  test('lists the notes and PDFs Perch wrote for sessions', () => {
+    expect(collectExport(db, '0.1.0', NOW).reports).toEqual([])
+    rememberReportFile(db, 'note', 'codex:c1', 'D:\\vault\\Perch\\報告\\2026-09-29 修 RSS.md')
+    rememberReportFile(db, 'pdf', 'codex:c1', 'C:\\data\\output\\reports\\2026-09-29 修 RSS.pdf')
+
+    expect(collectExport(db, '0.1.0', NOW).reports).toEqual([
+      { agentSessionId: 'codex:c1', kind: 'note', path: 'D:\\vault\\Perch\\報告\\2026-09-29 修 RSS.md' },
+      { agentSessionId: 'codex:c1', kind: 'pdf', path: 'C:\\data\\output\\reports\\2026-09-29 修 RSS.pdf' },
+    ])
   })
 
   test('the Markdown lists open work with its steps, 隨手記, routines and every day', () => {

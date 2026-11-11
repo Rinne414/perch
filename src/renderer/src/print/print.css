@@ -1,0 +1,132 @@
+/* 存成 PDF: a light A4 page with dark text. Applies only while the print view is up (html.printing). */
+html.printing {
+  /* The app is dark (color-scheme: dark); paper is not, or the page margins print dark. */
+  color-scheme: light;
+  --pr-ink: #1b1f27;
+  --pr-dim: #5b6372;
+  --pr-rule: #d5dae1;
+  --pr-accent: #0e7c71;
+  --pr-box: #f2f4f7;
+  --md-code-bg: #eef1f4;
+  --md-mark: #0e7c71;
+  --md-code-thumb: #c4cad3;
+  --md-rule: #d5dae1;
+  --md-th: #5b6372;
+}
+
+html.printing,
+html.printing body,
+html.printing #root {
+  height: auto;
+  overflow: visible;
+  background: #ffffff;
+}
+
+html.printing body {
+  box-shadow: none;
+  color: var(--pr-ink);
+  font: 11pt / 1.55 var(--font-ui);
+  user-select: text;
+}
+
+@page {
+  size: A4;
+  margin: 16mm 15mm 18mm;
+}
+
+.pr {
+  display: flex;
+  flex-direction: column;
+  gap: 8pt;
+}
+
+.pr h1 {
+  font-size: 18pt;
+  line-height: 1.3;
+}
+
+.pr h2 {
+  margin-top: 12pt;
+  padding-bottom: 3pt;
+  border-bottom: 1.5pt solid var(--pr-accent);
+  font-size: 13pt;
+  break-after: avoid;
+}
+
+.pr h3 {
+  font-size: 11pt;
+  color: var(--pr-accent);
+  break-after: avoid;
+}
+
+.pr-meta {
+  color: var(--pr-dim);
+}
+
+.pr-meta.small {
+  font-size: 9pt;
+}
+
+.pr-who {
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: var(--pr-dim);
+  break-after: avoid;
+}
+
+.pr-said {
+  padding: 6pt 9pt;
+  border-left: 2pt solid var(--pr-rule);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pr-note {
+  color: var(--pr-dim);
+}
+
+.pr-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 2pt;
+  break-inside: avoid;
+}
+
+.pr-turns {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12pt;
+}
+
+.pr-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 4pt;
+  padding-top: 8pt;
+  border-top: 0.75pt solid var(--pr-rule);
+}
+
+/* On paper nothing can scroll sideways: long code lines wrap instead. */
+html.printing .md-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: visible;
+}
+
+/* A table on paper fits the page width: cells wrap instead of the row scrolling. */
+html.printing .md-table {
+  overflow: visible;
+}
+
+html.printing .md-table table {
+  width: 100%;
+}
+
+html.printing .md-table th,
+html.printing .md-table td {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}

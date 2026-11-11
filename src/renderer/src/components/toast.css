@@ -20,6 +20,13 @@
   font-size: 12.5px;
   white-space: nowrap;
   animation: toast 180ms ease-out;
+  /* A long message (a saved file's name) wraps inside the window instead of running off it. */
+  max-width: calc(100vw - 48px);
+}
+
+.toast > span {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .toast .btn {

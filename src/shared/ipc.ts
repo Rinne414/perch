@@ -1,3 +1,4 @@
+import type { BriefingPayload } from './briefing'
 import type { DayMarks, DayView } from './calendar'
 import type { Clip, ClipsPayload } from './clips'
 import type { IntegrationsPayload } from './integrations'
@@ -9,13 +10,23 @@ import type { ProjectDetail, ProjectSummary } from './projects'
 import type { QuotaSnapshot, QuotaWindow } from './quota'
 import type { Recap } from './recap'
 import type { RestoreList, RestoreSummary } from './restore'
-import type { AgentSession, Item, MonthlyRule, RoutineSchedule } from './types'
+import type { AgentSession, AgentTurn, Item, MonthlyRule, RoutineSchedule } from './types'
 
 /** Where a captured line goes when it carries no date. */
 export type CaptureTarget = 'today' | 'inbox'
 
-export type MainTab = 'today' | 'inbox' | 'stash' | 'agents' | 'projects' | 'routines' | 'calendar' | 'settings'
-export const MAIN_TABS: readonly MainTab[] = ['today', 'inbox', 'stash', 'agents', 'projects', 'routines', 'calendar', 'settings']
+export type MainTab = 'briefing' | 'today' | 'inbox' | 'stash' | 'agents' | 'projects' | 'routines' | 'calendar' | 'settings'
+export const MAIN_TABS: readonly MainTab[] = [
+  'briefing',
+  'today',
+  'inbox',
+  'stash',
+  'agents',
+  'projects',
+  'routines',
+  'calendar',
+  'settings',
+]
 
 /** The float's tabs: what to do, what the agents are up to, and what was pasted to keep. */
 export type FloatTab = 'todo' | 'agents' | 'stash'
@@ -112,6 +123,25 @@ export interface AppInfo {
   readonly obsidianDir: string | null
   /** 暫存 that is not kept is cleared after this many days unused; null = never. */
   readonly clipRetentionDays: number | null
+  /** Where 存成筆記 writes: the Obsidian folder's Perch/報告, else output/reports in the data folder. */
+  readonly notesDir: string
+  /** Where 存成 PDF writes. */
+  readonly pdfDir: string
+  readonly pdfDirIsDefault: boolean
+  /** With an Obsidian folder chosen, a finished session's note is written by itself. */
+  readonly autoReports: boolean
+}
+
+/** A note or PDF Perch saved; `written` is false when the file already held exactly this. */
+export interface SavedFile {
+  readonly path: string
+  readonly written: boolean
+}
+
+/** One session with every turn, for its full record and its printout. */
+export interface SessionRecord {
+  readonly session: AgentSession
+  readonly turns: readonly AgentTurn[]
 }
 
 /** Folders the settings page can open in Explorer. */
@@ -159,6 +189,25 @@ export interface RoutineHistory {
 export interface Api {
   getNow(): Promise<NowPayload>
   getMain(): Promise<MainPayload>
+  /** 簡報: what happened while the person was away. */
+  getBriefing(): Promise<BriefingPayload>
+  /** Every turn of one agent session, oldest first. */
+  getSessionTurns(sessionId: string): Promise<readonly AgentTurn[]>
+  /** One session and its turns (the print view reads this). */
+  getSessionRecord(sessionId: string): Promise<SessionRecord>
+  /** 存成筆記: the session as a Markdown note in the notes folder. */
+  saveSessionNote(sessionId: string): Promise<SavedFile>
+  /** 存成 PDF: the session printed to A4 in the PDF folder. */
+  saveSessionPdf(sessionId: string): Promise<SavedFile>
+  /** 存成今天的筆記: the whole briefing as the day's note. */
+  saveBriefingNote(): Promise<SavedFile>
+  /** Shows a file this run saved in Explorer; other paths are ignored. */
+  showSavedFile(path: string): void
+  /** Asks for the folder 存成 PDF writes to; null when cancelled. */
+  pickPdfFolder(): Promise<AppInfo | null>
+  /** Back to output/reports in the data folder. */
+  resetPdfFolder(): Promise<AppInfo>
+  setAutoReports(on: boolean): Promise<AppInfo>
   capture(text: string, target: CaptureTarget): Promise<Item>
   complete(id: string): Promise<void>
   reopen(id: string): Promise<void>
@@ -222,7 +271,14 @@ export interface Api {
   removeManualEntry(entryId: number): Promise<void>
   /** Saves the day's note (the diary); an empty text removes it. */
   setDayNote(day: string, text: string): Promise<void>
-  acknowledgeAgents(ids: readonly string[]): Promise<void>
+  /** 處理了: ticks one point of a session's report off (`key` is its todoKey). */
+  markTodo(sessionId: string, key: string): Promise<void>
+  /** 復原 for `markTodo`. */
+  unmarkTodo(sessionId: string, key: string): Promise<void>
+  /** Marks sessions as seen; returns a token for `undoAcknowledge` (valid for a minute). */
+  acknowledgeAgents(ids: readonly string[]): Promise<string>
+  /** Puts back the seen marks of one `acknowledgeAgents` call; false when the minute has passed. */
+  undoAcknowledge(token: string): Promise<boolean>
   /** Takes a session off Perch's list (its replies stay on the calendar); `undoRemoveAgent` puts it back for a minute. */
   removeAgent(id: string): Promise<void>
   undoRemoveAgent(id: string): Promise<boolean>
@@ -314,6 +370,16 @@ export interface Api {
 export const CHANNELS = {
   getNow: 'now:get',
   getMain: 'main:get',
+  getBriefing: 'briefing:get',
+  getSessionTurns: 'agent:turns',
+  getSessionRecord: 'agent:record',
+  saveSessionNote: 'report:note',
+  saveSessionPdf: 'report:pdf',
+  saveBriefingNote: 'report:briefing',
+  showSavedFile: 'report:show',
+  pickPdfFolder: 'report:pdf-folder',
+  resetPdfFolder: 'report:pdf-folder-reset',
+  setAutoReports: 'report:auto',
   capture: 'item:capture',
   complete: 'item:complete',
   reopen: 'item:reopen',
@@ -353,7 +419,10 @@ export const CHANNELS = {
   addManualEntry: 'calendar:add-entry',
   removeManualEntry: 'calendar:remove-entry',
   setDayNote: 'calendar:note',
+  markTodo: 'agent:mark-todo',
+  unmarkTodo: 'agent:unmark-todo',
   acknowledgeAgents: 'agent:acknowledge',
+  undoAcknowledge: 'agent:undo-acknowledge',
   removeAgent: 'agent:remove',
   undoRemoveAgent: 'agent:undo-remove',
   restoreSessions: 'agent:restore',

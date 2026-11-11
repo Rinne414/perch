@@ -50,6 +50,7 @@ describe('antigravity events', () => {
       at: NOW,
       cwd: 'C:\\Users\\me\\code\\perch',
       title: '修好登入頁',
+      prompt: '修好登入頁\n細節…',
     })
   })
 
@@ -94,6 +95,17 @@ describe('antigravity transcript', () => {
     expect(lastUserRequest(lines)).toBe('整理測試圖')
     expect(lastReply(lines)).toBe('整理好了，放在 out/')
     expect(lastUserRequest([])).toBeUndefined()
+  })
+
+  test('a long request and answer come back whole, not cut', () => {
+    const long = `第一行\n${'字'.repeat(5000)}`
+    const whole = [
+      JSON.stringify({ type: 'USER_INPUT', content: `<USER_REQUEST>\n${long}\n</USER_REQUEST>` }),
+      JSON.stringify({ type: 'PLANNER_RESPONSE', content: long }),
+    ]
+
+    expect(lastUserRequest(whole)).toBe(long)
+    expect(lastReply(whole)).toBe(long)
   })
 
   test('only the end of a long transcript is read, and a cut first line is dropped', () => {

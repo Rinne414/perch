@@ -1,3 +1,4 @@
+import { isAgentSessionKey } from '@shared/agentEvent'
 import { app, ipcMain, shell } from 'electron'
 import { execFile, spawn } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync } from 'node:fs'
@@ -244,7 +245,8 @@ async function readRestart(ctx: AppContext): Promise<void> {
   announce(ctx)
 }
 
-const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : [])
+/** Session ids from the reopen window, by the one rule every IPC call keeps; anything else is left out. */
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter(isAgentSessionKey) : [])
 
 /**
  * The reopen window's IPC, names for old Claude Code sessions, the taskbar jump list, and after

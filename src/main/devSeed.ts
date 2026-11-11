@@ -4,6 +4,7 @@ import { addDays, dayKey } from '@shared/day'
 import { acknowledgeAgent, applyAgentEvent } from './db/agents'
 import { completeItem, createItem, listOpenItems } from './db/items'
 import { transaction } from './db/transaction'
+import { seedBriefing } from './devSeedBriefing'
 
 const MIN = 60_000
 const DAY = 86_400_000
@@ -78,11 +79,6 @@ export function seedIfRequested(db: DatabaseSync, dayStartHour: number): void {
       { v: 1, agent: 'claude-code', sessionId: 'c1', status: 'needs_input', detail: '要執行 pnpm install', at: now - 2 * MIN },
       now,
     )
-    applyAgentEvent(
-      db,
-      { v: 1, agent: 'codex', sessionId: 'x1', status: 'done', cwd: cwd('api-server'), title: '加上分頁', at: now - 15 * MIN },
-      now,
-    )
     applyAgentEvent(db, { v: 1, agent: 'antigravity-cli', sessionId: 'g1', status: 'running', cwd: cwd('docs'), at: now - 5 * MIN }, now)
     applyAgentEvent(db, { v: 1, agent: 'grok-build', sessionId: 'k1', status: 'running', cwd: cwd('game'), at: now - MIN }, now)
     // Folders left alone for a while, for the 專案 tab: a few days, and more than a month.
@@ -99,5 +95,6 @@ export function seedIfRequested(db: DatabaseSync, dayStartHour: number): void {
     )
     createItem(db, { kind: 'idea', title: '更新 README 的分頁說明', project: cwd('api-server'), source: 'agent:codex' }, now - 10 * MIN)
     createItem(db, { kind: 'idea', title: '跑完整測試再合併', project: cwd('style-transfer') }, now - 5 * DAY)
+    seedBriefing(db, now, cwd)
   })
 }

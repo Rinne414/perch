@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import type { DatabaseSync } from 'node:sqlite'
-import { parseAgentEvent, type AgentEvent } from '@shared/agentEvent'
+import { capTurnText, MAX_TURN_TEXT, parseAgentEvent, type AgentEvent } from '@shared/agentEvent'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -199,6 +199,43 @@ describe('migration 7', () => {
   })
 })
 
+describe('capTurnText', () => {
+  test('leaves text up to the limit alone', () => {
+    const text = 'a'.repeat(MAX_TURN_TEXT)
+
+    expect(capTurnText(text)).toBe(text)
+  })
+
+  test('cuts longer text at the limit and says how many characters were not kept', () => {
+    const capped = capTurnText('a'.repeat(MAX_TURN_TEXT + 1234))
+
+    expect(capped.startsWith('a'.repeat(MAX_TURN_TEXT))).toBe(true)
+    expect(capped.slice(MAX_TURN_TEXT)).toBe('\n\n（太長了，只留前 1,000,000 字，後面 1,234 字沒有保留）')
+  })
+
+  test('does not cut a character in half', () => {
+    const text = `${'a'.repeat(MAX_TURN_TEXT - 1)}😀${'b'.repeat(10)}`
+    const capped = capTurnText(text)
+
+    expect(capped).toContain('只留前 999,999 字，後面 12 字沒有保留')
+    expect(capped.startsWith('a'.repeat(MAX_TURN_TEXT - 1) + '\n')).toBe(true)
+  })
+
+  test('parseAgentEvent applies it to prompt and reply only', () => {
+    const e = parseAgentEvent({
+      v: 1,
+      agent: 'codex',
+      sessionId: 'x',
+      status: 'done',
+      prompt: 'p'.repeat(MAX_TURN_TEXT + 5),
+      reply: 'r'.repeat(MAX_TURN_TEXT),
+    })
+
+    expect(e?.prompt).toMatch(/後面 5 字沒有保留）$/)
+    expect(e?.reply).toHaveLength(MAX_TURN_TEXT)
+  })
+})
+
 describe('parseAgentEvent', () => {
   test('accepts a well-formed event and trims text', () => {
     expect(parseAgentEvent({ v: 1, agent: 'codex', sessionId: ' x ', status: 'done', title: ' hi ' })).toEqual({
@@ -219,6 +256,26 @@ describe('parseAgentEvent', () => {
     expect(parseAgentEvent({ ...base, ended: true })).toMatchObject({ ended: true })
     expect(parseAgentEvent({ ...base, ended: 'yes' })).not.toHaveProperty('ended')
     expect(parseAgentEvent(base)).not.toHaveProperty('ended')
+  })
+
+  test('keeps prompt and reply whole, past the 500 characters other text is cut at', () => {
+    const prompt = '問'.repeat(5000)
+    const reply = ` ${'答'.repeat(20_000)}\n`
+
+    expect(parseAgentEvent({ v: 1, agent: 'codex', sessionId: 'x', status: 'done', title: 't', detail: 'd'.repeat(900), prompt, reply })).toMatchObject({
+      prompt,
+      reply: '答'.repeat(20_000),
+      detail: 'd'.repeat(500),
+    })
+  })
+
+  test('leaves prompt and reply out when they are missing, blank or not text', () => {
+    const base = { v: 1, agent: 'codex', sessionId: 'x', status: 'done' }
+    const e = parseAgentEvent({ ...base, prompt: '  ', reply: 42 })
+
+    expect(e).not.toHaveProperty('prompt')
+    expect(e).not.toHaveProperty('reply')
+    expect(parseAgentEvent(base)).not.toHaveProperty('prompt')
   })
 
   test.each([

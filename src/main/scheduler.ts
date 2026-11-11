@@ -10,7 +10,9 @@ import { sessionCutoff } from './restore'
 import { agentAlert, agentsToNotify, dueAlert, dueItemsToNotify, monthlyAlert, monthlyToNotify } from './services/reminders'
 import { scheduleAlerts } from './services/scheduleAlerts'
 import { clearExpiredClips } from './services/clips'
-import { clipsDir } from './paths'
+import { clipsDir, dataDir } from './paths'
+import { createAwayWatch } from './awayWatch'
+import { createAutoReports } from './autoReports'
 
 const TICK_MS = 20_000
 const HOUR_MS = 3_600_000
@@ -25,6 +27,8 @@ export function startScheduler(ctx: AppContext, beforeTick: () => void = () => u
   let quotaSeen = ''
   let lastDay = ''
   let clipsCleared = 0
+  const awayTick = createAwayWatch(ctx.db)
+  const sessionNotes = createAutoReports(ctx.db, ctx.settings, dataDir, ctx.log)
 
   const tick = (): void => {
     beforeTick()
@@ -32,6 +36,8 @@ export function startScheduler(ctx: AppContext, beforeTick: () => void = () => u
     const settings = ctx.settings()
     const now = Date.now()
     let changed = rolloverPlans(db, dayKey(now, settings.dayStartHour), now) > 0
+    // The briefing's 你離開了 line follows the keyboard and mouse.
+    if (awayTick(now)) changed = true
 
     const open = listOpenItems(db)
     const due = dueItemsToNotify(open, now, settings)
@@ -65,6 +71,7 @@ export function startScheduler(ctx: AppContext, beforeTick: () => void = () => u
     if (lastDay && lastDay !== today) ctx.syncObsidian(lastDay)
     ctx.syncObsidian(today)
     lastDay = today
+    sessionNotes(now)
 
     for (const s of agentsToNotify(listAgentSessions(db, now - AGENT_LOOKBACK_MS), announced, now, sessionCutoff())) {
       announced.set(s.id, s.attentionAt!)

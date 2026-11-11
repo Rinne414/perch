@@ -19,6 +19,12 @@ export const clock = (ms: number): string => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/** "2026-11-11 13:05" in local time: an exact moment for notes and printouts. */
+export function localStamp(ms: number): string {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${clock(ms)}`
+}
+
 export const monthDay = (ms: number): string => {
   const d = new Date(ms)
   return `${d.getMonth() + 1}/${d.getDate()}`

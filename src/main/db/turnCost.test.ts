@@ -7,7 +7,7 @@ import type { AgentEvent } from '@shared/agentEvent'
 import { reportText } from '@shared/reportPick'
 import { applyAgentEvent } from './agents'
 import { openDatabase } from './connection'
-import { listRepliesEndedBetween, listTurns, listTurnSpans, sessionBriefs } from './turns'
+import { listAllTurns, listRepliesEndedBetween, listTurns, listTurnSpans, sessionBriefs } from './turns'
 
 const T0 = 1_000_000
 const ID = 'claude-code:s1'
@@ -89,6 +89,19 @@ describe('turns that never got a reply', () => {
 })
 
 describe('cost of a refresh', () => {
+  /** Writing 36 million characters takes a few seconds here and far longer on a slow machine. */
+  const SEED_TIMEOUT_MS = 120_000
+
+  /** The fastest of three runs, in ms, so one slow run on a busy machine does not decide the result. */
+  const fastest = (run: () => void): number =>
+    Math.min(
+      ...[0, 1, 2].map(() => {
+        const t0 = performance.now()
+        run()
+        return performance.now() - t0
+      }),
+    )
+
   test('40 sessions x 3 turns x 300,000 characters: the briefing queries read only what they show', () => {
     const big = (k: number): string => `## 結論\n第 ${k} 份。\n${'說'.repeat(300_000)}`
     const ids: string[] = []
@@ -101,17 +114,25 @@ describe('cost of a refresh', () => {
       ids.push(`claude-code:n${s}`)
     }
 
-    const t0 = performance.now()
     const briefs = sessionBriefs(db, ids)
     const lines = listRepliesEndedBetween(db, T0, T0 + 100)
     const spans = listTurnSpans(db, T0, T0 + 100)
-    const ms = performance.now() - t0
+    const shownMs = fastest(() => {
+      sessionBriefs(db, ids)
+      listRepliesEndedBetween(db, T0, T0 + 100)
+      listTurnSpans(db, T0, T0 + 100)
+    })
+    const wholeMs = fastest(() => {
+      listAllTurns(db)
+    })
 
     expect(briefs.get('claude-code:n0')?.reportReply).toHaveLength(50_001)
     expect(briefs.get('claude-code:n0')?.latestReply).toHaveLength(2000)
     expect(lines.every((l) => l.reply.length === 2000)).toBe(true)
     expect(spans).toHaveLength(120)
-    // Measured on the owner's PC (2026-11-11): the old queries took about 900 ms on this data, these about 120 ms.
-    expect(ms).toBeLessThan(400)
-  })
+    // Against reading every turn whole on the same machine, so a slow machine cannot fail it and
+    // queries that read every text again cannot pass. Measured on the owner's PC (2026-11-12):
+    // about 140 ms against about 550 ms; the old queries, which read every text, took about 900 ms.
+    expect(shownMs).toBeLessThan(wholeMs / 2)
+  }, SEED_TIMEOUT_MS)
 })
